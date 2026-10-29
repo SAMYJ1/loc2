@@ -55,7 +55,7 @@ class SessionService:
         self.backend, self.clock = backend, monotonic
         self.utcnow = utcnow or (lambda:dt.datetime.now(dt.timezone.utc))
         self.lock = threading.RLock()
-        self.snapshot = dict(sessionId=None, deviceId=None, availableDevices=[], connected=False,
+        self.snapshot = dict(controlEpoch=str(uuid.uuid4()), controlRevision=0, sessionId=None, deviceId=None, availableDevices=[], connected=False,
             subscribed=False, target=None, state='disconnected', helperAcceptedBatches=0,
             queuedMessages=0, adoption='unverified', recovery='not-required', error=None)
         self.next_send = 0
@@ -73,6 +73,8 @@ class SessionService:
                 self.snapshot['availableDevices'] = []
                 self._fail('无法查询 USB 设备；当前会话已停止')
                 return self.status()
+            if set(devices) != set(self.snapshot['availableDevices']):
+                self.snapshot['controlRevision'] += 1
             self.snapshot['availableDevices'] = devices
             if self.snapshot['sessionId'] and self.snapshot['deviceId'] not in devices:
                 self.stop('usb-disconnected')
@@ -101,6 +103,7 @@ class SessionService:
             if not self.snapshot['sessionId']:
                 raise ValueError('USB 会话启动时已结束，请检查连接')
             self.snapshot['target'] = point
+            self.snapshot['controlRevision'] += 1
             self.snapshot['adoption'] = 'unverified'
             return self.status()
 
@@ -108,6 +111,7 @@ class SessionService:
         with self.lock:
             if expected_session_id is not None and expected_session_id != self.snapshot['sessionId']:
                 raise ValueError('会话已变化，请刷新后重试')
+            self.snapshot['controlRevision'] += 1
             self.snapshot.update(sessionId=None, target=None, connected=False, subscribed=False,
                                  state='stopped', adoption='unverified', stopReason=reason)
             self.next_send = 0

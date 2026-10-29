@@ -114,3 +114,17 @@ class SessionTests(unittest.TestCase):
         self.usb.start=start
         with self.assertRaises(ValueError): self.service.apply('test-phone',{'latitude':1,'longitude':2})
         self.assertIsNone(self.service.status()['target'])
+
+    def test_control_revision_changes_for_local_actions_and_device_reappearance(self):
+        revision = self.service.status()['controlRevision']
+        self.service.refresh_devices()
+        self.assertEqual(self.service.status()['controlRevision'], revision)
+        self.usb.devices=[];self.service.refresh_devices()
+        self.usb.devices=['test-phone'];self.service.refresh_devices()
+        self.assertGreater(self.service.status()['controlRevision'], revision)
+        revision=self.service.status()['controlRevision']
+        self.service.apply('test-phone',{'latitude':1,'longitude':2})
+        self.assertGreater(self.service.status()['controlRevision'], revision)
+        revision=self.service.status()['controlRevision']
+        self.service.stop()
+        self.assertGreater(self.service.status()['controlRevision'], revision)

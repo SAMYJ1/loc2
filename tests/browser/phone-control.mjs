@@ -1,0 +1,46 @@
+import assert from 'node:assert/strict';
+import {spawn} from 'node:child_process';
+import {createInterface} from 'node:readline';
+const {chromium}=await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
+const fixture=spawn(process.env.PYTHON || 'python3',['tests/fixtures/phone_server.py'],{stdio:['pipe','pipe','inherit']});
+const pending=[],lines=[];
+const reader=createInterface({input:fixture.stdout});
+reader.on('line',line=>{const value=JSON.parse(line);if(pending.length)pending.shift()(value);else lines.push(value);});
+const next=()=>lines.length ? Promise.resolve(lines.shift()) : new Promise(resolve=>pending.push(resolve));
+const command=async value=>{fixture.stdin.write(value+'\n');return next();};
+const initial=await next();
+const browser=await chromium.launch({channel:'chrome',headless:true});
+const page=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
+try {
+  await page.goto(initial.pairingURL);
+  await page.getByText('等待 Mac 确认',{exact:true}).waitFor();
+  assert.equal(new URL(page.url()).hash,'');
+  assert.equal(await page.getByRole('button',{name:'应用位置',exact:true}).isDisabled(),true);
+  await command('approve');
+  await page.getByText('配对授权已确认。可将此页面添加到主屏幕。',{exact:true}).waitFor();
+  const cookies=await page.context().cookies();
+  const grant=cookies.find(cookie=>cookie.name==='location_lab_control');
+  assert.equal(grant.httpOnly,true);assert.equal(grant.sameSite,'Strict');
+  await command('disconnect');
+  await page.waitForFunction(()=>document.querySelector('#connection').textContent.includes('USB 未连接'));
+  await page.getByLabel('WGS84 纬度').fill('31.23');
+  await page.getByLabel('WGS84 经度').fill('121.47');
+  assert.equal(await page.getByRole('button',{name:'应用位置',exact:true}).isDisabled(),true);
+  assert.equal((await command('snapshot')).running,false);
+  await command('reconnect');
+  await page.waitForFunction(()=>!document.querySelector('#apply').disabled);
+  await page.getByRole('button',{name:'应用位置',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector('#accepted').textContent.includes('31.23, 121.47'));
+  assert.equal((await command('snapshot')).status.adoption,'unverified');
+  await page.getByLabel('WGS84 纬度').fill('32');
+  assert.equal((await command('snapshot')).status.target.latitude,31.23);
+  await page.getByRole('button',{name:'停止报点',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector('#connection').textContent.includes('已停止报点'));
+  const stopped=await command('snapshot');assert.equal(stopped.running,false);assert.equal(stopped.status.target,null);
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+  await page.screenshot({path:process.env.PHONE_SCREENSHOT || '/tmp/location-lab-phone-control.png',fullPage:true});
+  console.log('PASS pairing → private Mac approval → HttpOnly grant → unplugged draft → explicit apply → draft isolation → stop');
+} finally {
+  await browser.close();fixture.stdin.write('quit\n');fixture.stdin.end();reader.close();
+  await new Promise(resolve=>fixture.once('exit',resolve));
+}
