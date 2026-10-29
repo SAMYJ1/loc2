@@ -20,6 +20,8 @@ final class LocationApp: NSObject, NSApplicationDelegate {
     private let phoneText = NSTextField(wrappingLabelWithString: "手机控制尚未配置")
     private let qrImage = NSImageView()
     private let pendingRequests = NSPopUpButton()
+    private let authorizedControllers = NSPopUpButton()
+    private var grants: [[String:Any]] = []
     private var phone: [String:Any] = [:]
     private var pending: [[String:Any]] = []
     private var lastPairingURL: String?
@@ -84,7 +86,7 @@ final class LocationApp: NSObject, NSApplicationDelegate {
     }
 
     private func makePairingWindow() {
-        pairingWindow = NSWindow(contentRect: NSRect(x:0,y:0,width:540,height:460),styleMask:[.titled,.closable],backing:.buffered,defer:false)
+        pairingWindow = NSWindow(contentRect: NSRect(x:0,y:0,width:540,height:570),styleMask:[.titled,.closable],backing:.buffered,defer:false)
         pairingWindow.title = "配对手机控制端"
         pairingWindow.isReleasedWhenClosed = false
         pairingWindow.center()
@@ -108,6 +110,10 @@ final class LocationApp: NSObject, NSApplicationDelegate {
         pendingRequests.widthAnchor.constraint(equalToConstant: 460).isActive = true
         content.addArrangedSubview(pendingRequests)
         content.addArrangedSubview(NSStackView(views: [button("允许所选控制端",#selector(approvePairing)),button("拒绝",#selector(denyPairing))]))
+        content.addArrangedSubview(NSTextField(labelWithString:"已授权控制端"))
+        authorizedControllers.widthAnchor.constraint(equalToConstant:460).isActive = true
+        content.addArrangedSubview(authorizedControllers)
+        content.addArrangedSubview(button("撤销所选控制端授权",#selector(revokeAuthorization)))
     }
 
     private func button(_ title: String, _ selector: Selector) -> NSButton {
@@ -211,6 +217,19 @@ final class LocationApp: NSObject, NSApplicationDelegate {
         if pending.isEmpty { pendingRequests.addItem(withTitle: "暂无待确认请求") }
         else if selection >= 0 && selection < pending.count { pendingRequests.selectItem(at:selection) }
         pendingRequests.isEnabled = !pending.isEmpty
+        let selectedGrant = authorizedControllers.indexOfSelectedItem
+        let selectedId = grants.indices.contains(selectedGrant) ? grants[selectedGrant]["grantId"] as? String : nil
+        grants = phone["grants"] as? [[String:Any]] ?? []
+        authorizedControllers.removeAllItems()
+        for grant in grants { authorizedControllers.addItem(withTitle:"\(grant["label"] ?? "控制端") → \(grant["deviceId"] ?? "未知手机")") }
+        if grants.isEmpty { authorizedControllers.addItem(withTitle:"暂无已授权控制端") }
+        else if let selectedId = selectedId, let index = grants.firstIndex(where: { $0["grantId"] as? String == selectedId }) { authorizedControllers.selectItem(at:index) }
+        authorizedControllers.isEnabled = !grants.isEmpty
+    }
+    @objc private func revokeAuthorization() {
+        let index = authorizedControllers.indexOfSelectedItem
+        guard grants.indices.contains(index), let id = grants[index]["grantId"] as? String else { return }
+        send("pairing-revoke",values:["grantId":id])
     }
     @objc private func createPairing() { pairingWindow.makeKeyAndOrderFront(nil);NSApp.activate(ignoringOtherApps:true);send("pairing-create") }
     @objc private func approvePairing() {

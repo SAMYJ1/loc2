@@ -1,5 +1,6 @@
 """Same-origin phone control. Mac approval exists only on the private local IPC."""
 import hashlib
+from .grants import GrantStore, MAX_GRANTS
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import ipaddress
@@ -27,13 +28,17 @@ def secret_hash(value):
 
 
 class PhoneControl:
-    def __init__(self, service, clock=time.time, maps_config=None):
+    def __init__(self, service, clock=time.time, state_dir=None, maps_config=None):
         self.service, self.clock = service, clock
         self.lock = service.lock
         self.challenge = None
         self.pending = {}
-        self.grants = {}
+        self.state_dir = Path(state_dir) if state_dir else None
+        if self.state_dir and not self.state_dir.is_absolute(): raise ValueError('授权存储目录需要绝对路径')
+        self.grant_store = GrantStore(self.state_dir/'grants.json' if self.state_dir else None)
+        self.grants = self.grant_store.load()
         self.origin = None
+        self.storage_failed = False
         self.maps_config = dict(maps_config) if isinstance(maps_config,dict) else {}
 
     def create_pairing(self):
@@ -69,9 +74,24 @@ class PhoneControl:
                 raise ValueError('配对请求已失效')
             if self.service.refresh_devices()['availableDevices'] != [pending['deviceId']]:
                 raise ValueError('目标 USB 手机已变化，请重新配对')
+            if self.storage_failed: raise ValueError('授权存储不可写，手机控制已停用；请修复本机存储后重新打开应用')
+            if len(self.grants)>=MAX_GRANTS: raise ValueError('授权数量已满，请先撤销不用的控制端')
             token=secrets.token_urlsafe(32)
-            self.grants[secret_hash(token)]=dict(deviceId=pending['deviceId'],label=pending['label'],requests={})
+            grants=dict(self.grants)
+            grants[secret_hash(token)]=dict(grantId=secrets.token_urlsafe(18),deviceId=pending['deviceId'],label=pending['label'],createdAt=self.clock(),requests={})
+            self.grant_store.save(grants)
+            self.grants=grants
             pending.update(state='approved',token=token)
+
+    def revoke(self, grant_id):
+        with self.lock:
+            keys=[key for key,grant in self.grants.items() if grant['grantId']==grant_id]
+            if not keys: raise ValueError('授权不存在，请刷新后重试')
+            for key in keys: del self.grants[key]
+            try: self.grant_store.save(self.grants)
+            except (OSError,ValueError):
+                self.storage_failed=True
+                raise ValueError('撤销未能保存，已停用本次进程的全部手机控制；请修复授权文件后再重启') from None
 
     def deny(self, request_id):
         with self.lock:
@@ -88,6 +108,7 @@ class PhoneControl:
             return dict(state=pending['state']),token
 
     def authorize(self, token):
+        if self.storage_failed: raise RequestError('授权存储异常，请在 Mac 修复后重新配对',401)
         if not isinstance(token,str) or len(token)>128:
             raise RequestError('请先在 Mac 确认配对授权',401)
         grant=self.grants.get(secret_hash(token))
@@ -153,7 +174,7 @@ class PhoneControl:
     def local_status(self):
         with self.lock:
             challenge=self.challenge if self.challenge and self.challenge['expires']>self.clock() else None
-            return dict(origin=self.origin,pairingURL=(self.origin+'/#pair='+challenge['challenge']) if challenge and self.origin else None,
+            return dict(error='授权存储异常，手机控制已停用；请修复授权文件后再重启' if self.storage_failed else None,grants=[{field:grant[field] for field in ('grantId','deviceId','label','createdAt')} for grant in self.grants.values()],origin=self.origin,pairingURL=(self.origin+'/#pair='+challenge['challenge']) if challenge and self.origin else None,
                 pairingDevice=challenge['deviceId'] if challenge else None,
                 pending=[dict(requestId=key,label=value['label'],deviceId=value['deviceId']) for key,value in self.pending.items() if value['state']=='pending' and value['expires']>self.clock()])
 
@@ -191,7 +212,7 @@ class PhoneHandler(BaseHTTPRequestHandler):
             cookies=SimpleCookie();cookies.load(self.headers.get('Cookie',''))
             return cookies[COOKIE].value if COOKIE in cookies else None
         except Exception: return None
-    def _reply(self,status,body,content_type='application/json; charset=utf-8',cookie=None):
+    def _reply(self,status,body,content_type='application/json; charset=utf-8',cookie=None,clear_cookie=False):
         data=json.dumps(body,ensure_ascii=False,allow_nan=False).encode() if not isinstance(body,bytes) else body
         nonce=secrets.token_urlsafe(24)
         if content_type.startswith('text/html'):
@@ -201,7 +222,8 @@ class PhoneHandler(BaseHTTPRequestHandler):
         self.send_header('Cache-Control','no-store');self.send_header('X-Content-Type-Options','nosniff')
         self.send_header('Referrer-Policy','no-referrer')
         self.send_header('Content-Security-Policy',f"default-src 'self'; script-src 'self' https://cdn.apple-mapkit.com 'nonce-{nonce}' 'wasm-unsafe-eval'; style-src 'self' 'nonce-{nonce}'; img-src 'self' data: https://*.apple-mapkit.com blob:; connect-src 'self' https://*.apple-mapkit.com blob:; worker-src https://*.apple-mapkit.com blob:; frame-src https://*.apple-mapkit.com; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
-        if cookie: self.send_header('Set-Cookie',f'{COOKIE}={cookie}; HttpOnly; SameSite=Strict; Path=/')
+        if cookie: self.send_header('Set-Cookie',f'{COOKIE}={cookie}; HttpOnly; SameSite=Strict; Path=/; Max-Age=31536000')
+        elif clear_cookie: self.send_header('Set-Cookie',f'{COOKIE}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0')
         self.end_headers();self.wfile.write(data)
     def do_GET(self):
         try:
@@ -211,7 +233,7 @@ class PhoneHandler(BaseHTTPRequestHandler):
             static={'/':('index.html','text/html; charset=utf-8'),'/app.js':('app.js','text/javascript; charset=utf-8'),'/maps.js':('maps.js','text/javascript; charset=utf-8'),'/maps.css':('maps.css','text/css; charset=utf-8'),'/style.css':('style.css','text/css; charset=utf-8')}
             if self.path not in static: raise RequestError('页面不存在',404)
             name,mime=static[self.path];self._reply(200,(WEB/name).read_bytes(),mime)
-        except RequestError as error: self._reply(error.status,dict(error=str(error)))
+        except RequestError as error: self._reply(error.status,dict(error=str(error)),clear_cookie=error.status==401)
         except (OSError,ValueError): self._reply(500,dict(error='请求处理失败'))
     def do_POST(self):
         try:
@@ -232,6 +254,6 @@ class PhoneHandler(BaseHTTPRequestHandler):
             elif self.path in ('/api/apply','/api/stop'): result,cookie=control.command(self._cookie(),self.path[5:],body),None
             else: raise RequestError('操作不存在',404)
             self._reply(200,result,cookie=cookie)
-        except RequestError as error: self._reply(error.status,dict(error=str(error)))
+        except RequestError as error: self._reply(error.status,dict(error=str(error)),clear_cookie=error.status==401)
         except (ValueError,TypeError): self._reply(400,dict(error='请求格式无效'))
         except OSError: self.close_connection=True
