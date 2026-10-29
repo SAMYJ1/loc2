@@ -176,7 +176,7 @@ final class LocationApp: NSObject, NSApplicationDelegate {
     }
 
     private func render() {
-        let names = ["ready":"就绪", "disconnected":"未连接", "connecting":"正在连接", "waiting-for-subscription":"等待手机位置订阅", "reporting":"正在报点", "stopped":"已停止报点", "error":"异常"]
+        let names = ["ready":"就绪", "disconnected":"未连接", "connecting":"正在连接", "waiting-for-video":"正在准备定位会话", "waiting-for-subscription":"等待手机位置订阅", "reporting":"正在报点", "stopped":"已停止报点", "error":"异常"]
         let status = names[state["state"] as? String ?? ""] ?? "未知状态"
         item.button?.title = "Location Lab · \(status)"
         let count = (state["availableDevices"] as? [String])?.count ?? 0

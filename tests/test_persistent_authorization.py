@@ -70,7 +70,7 @@ class PersistentAuthorizationTests(unittest.TestCase):
         control=PhoneControl(self.service,state_dir=self.directory);token=self.pair(control)
         current=self.service.status()
         control.command(token,'apply',dict(deviceId='test-phone',requestId='apply-before-page-close',timestamp=control.clock(),expectedRevision=current['controlRevision'],expectedEpoch=current['controlEpoch'],point=dict(latitude=1,longitude=2)))
-        self.usb.event('connected');self.usb.event('subscribed',active=True)
+        self.usb.event('connected');self.usb.event('video-ready');self.usb.event('subscribed',active=True)
         del control
         self.service.tick()
         self.assertTrue(self.usb.running);self.assertEqual(self.service.status()['helperAcceptedBatches'],1)

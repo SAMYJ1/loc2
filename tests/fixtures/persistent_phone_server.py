@@ -14,7 +14,7 @@ from location_lab.local_host import dispatch
 class ConnectedUSB(USBFixture):
     def start(self,session,device,emit):
         super().start(session,device,emit)
-        emit(session,'connected');emit(session,'subscribed',active=True)
+        emit(session,'connected');emit(session,'video-ready');emit(session,'subscribed',active=True)
 
 parser=argparse.ArgumentParser();parser.add_argument('--state-dir',required=True);parser.add_argument('--port',type=int,default=0)
 args=parser.parse_args()

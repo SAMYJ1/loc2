@@ -26,7 +26,7 @@ class SessionTests(unittest.TestCase):
         self.assertEqual(result['state'], 'connecting')
         self.service.tick()
         self.assertEqual(self.usb.frames, [])
-        self.usb.event('connected')
+        self.usb.event('connected');self.usb.event('video-ready')
         self.usb.event('subscribed',active=True)
         self.service.tick()
         self.assertEqual(self.service.status()['helperAcceptedBatches'],1)
@@ -45,7 +45,7 @@ class SessionTests(unittest.TestCase):
     def test_stop_reconnect_and_old_events_cannot_resume_previous_target(self):
         old=self.service.apply('test-phone',{'latitude':1,'longitude':2})['sessionId']
         emit=self.usb.emit
-        self.usb.event('connected');self.usb.event('subscribed',active=True);self.service.tick()
+        self.usb.event('connected');self.usb.event('video-ready');self.usb.event('subscribed',active=True);self.service.tick()
         self.service.stop()
         self.assertFalse(self.usb.running)
         self.assertIsNone(self.service.status()['target'])
@@ -71,7 +71,7 @@ class SessionTests(unittest.TestCase):
                     elif event=='sleep': self.service.suspend()
                     elif event=='failure': self.usb.event('failure')
                     else:
-                        self.usb.event('connected');self.usb.event('subscribed',active=True)
+                        self.usb.event('connected');self.usb.event('video-ready');self.usb.event('subscribed',active=True)
                         def fail(frame): raise OSError('private detail must not escape')
                         self.usb.send=fail;self.service.tick()
                 self.assertIsNone(self.service.status()['sessionId'])
@@ -79,7 +79,7 @@ class SessionTests(unittest.TestCase):
                 self.assertFalse(self.usb.running)
     def test_switching_target_resets_adoption_but_not_throttling_or_session(self):
         first=self.service.apply('test-phone',{'latitude':1,'longitude':2})
-        self.usb.event('connected');self.usb.event('subscribed',active=True);self.service.tick()
+        self.usb.event('connected');self.usb.event('video-ready');self.usb.event('subscribed',active=True);self.service.tick()
         self.service.confirm_adoption(first['sessionId'],first['controlRevision'])
         second=self.service.apply('test-phone',{'latitude':3,'longitude':4},first['sessionId'])
         self.assertEqual(first['sessionId'],second['sessionId'])
@@ -96,7 +96,7 @@ class SessionTests(unittest.TestCase):
         self.assertEqual(self.service.status()['recovery'],'user-confirmed')
     def test_adoption_confirmation_is_bound_to_the_reported_target_revision(self):
         first=self.service.apply('test-phone',{'latitude':1,'longitude':2})
-        self.usb.event('connected');self.usb.event('subscribed',active=True);self.service.tick()
+        self.usb.event('connected');self.usb.event('video-ready');self.usb.event('subscribed',active=True);self.service.tick()
         self.service.confirm_adoption(first['sessionId'],first['controlRevision'])
         second=self.service.apply('test-phone',{'latitude':3,'longitude':4},first['sessionId'])
         with self.assertRaises(ValueError):
@@ -111,10 +111,10 @@ class SessionTests(unittest.TestCase):
         self.assertEqual(self.service.status()['adoption'],'user-confirmed')
     def test_recovery_confirmation_cannot_apply_to_a_later_stopped_session(self):
         self.service.apply('test-phone',{'latitude':1,'longitude':2})
-        self.usb.event('connected');self.usb.event('subscribed',active=True);self.service.tick()
+        self.usb.event('connected');self.usb.event('video-ready');self.usb.event('subscribed',active=True);self.service.tick()
         first=self.service.stop()
         self.service.apply('test-phone',{'latitude':3,'longitude':4})
-        self.usb.event('connected');self.usb.event('subscribed',active=True);self.service.tick()
+        self.usb.event('connected');self.usb.event('video-ready');self.usb.event('subscribed',active=True);self.service.tick()
         second=self.service.stop()
         with self.assertRaises(ValueError):
             self.service.confirm_recovery(first['controlRevision'])
@@ -155,3 +155,19 @@ class SessionTests(unittest.TestCase):
         revision=self.service.status()['controlRevision']
         self.service.stop()
         self.assertGreater(self.service.status()['controlRevision'], revision)
+
+    def test_application_waits_for_current_session_video_before_supplying_location(self):
+        first=self.service.apply('test-phone',{'latitude':1,'longitude':2})
+        self.usb.event('connected');self.usb.event('subscribed',active=True)
+        self.service.tick()
+        self.assertEqual(self.usb.frames,[])
+        self.assertEqual(self.service.status()['state'],'waiting-for-video')
+        self.usb.event('video-ready');self.service.tick()
+        self.assertEqual(len(self.usb.frames),1)
+        self.service.stop()
+        self.service.apply('test-phone',{'latitude':3,'longitude':4})
+        self.usb.event('connected');self.usb.event('subscribed',active=True)
+        self.usb.emit(first['sessionId'],'video-ready')
+        self.now=2;self.service.tick()
+        self.assertEqual(len(self.usb.frames),1)
+        self.assertFalse(self.service.status()['videoReady'])

@@ -56,7 +56,7 @@ class SessionService:
         self.utcnow = utcnow or (lambda:dt.datetime.now(dt.timezone.utc))
         self.lock = threading.RLock()
         self.snapshot = dict(controlEpoch=str(uuid.uuid4()), controlRevision=0, sessionId=None, deviceId=None, availableDevices=[], connected=False,
-            subscribed=False, target=None, state='disconnected', helperAcceptedBatches=0, targetAcceptedBatches=0,
+            subscribed=False, videoReady=False, target=None, state='disconnected', helperAcceptedBatches=0, targetAcceptedBatches=0,
             queuedMessages=0, adoption='unverified', recovery='not-required', error=None)
         self.next_send = 0
         self.last_tick = None
@@ -92,7 +92,7 @@ class SessionService:
                 raise ValueError('请连接且仅连接指定的一台 USB iPhone')
             if not self.snapshot['sessionId']:
                 self.snapshot.update(sessionId=str(uuid.uuid4()), deviceId=device_id,
-                    state='connecting', connected=False, subscribed=False, error=None,
+                    state='connecting', connected=False, subscribed=False, videoReady=False, error=None,
                     helperAcceptedBatches=0, queuedMessages=0, adoption='unverified')
                 self.snapshot['target'] = point
                 try:
@@ -113,7 +113,7 @@ class SessionService:
             if expected_session_id is not None and expected_session_id != self.snapshot['sessionId']:
                 raise ValueError('会话已变化，请刷新后重试')
             self.snapshot['controlRevision'] += 1
-            self.snapshot.update(sessionId=None, target=None, targetAcceptedBatches=0, connected=False, subscribed=False,
+            self.snapshot.update(sessionId=None, target=None, targetAcceptedBatches=0, connected=False, subscribed=False, videoReady=False,
                                  state='stopped', adoption='unverified', stopReason=reason)
             self.next_send = 0
             self.last_tick = None
@@ -132,12 +132,16 @@ class SessionService:
             if session != self.snapshot['sessionId']:
                 return
             if kind == 'connected': self.snapshot['connected'] = True
+            if kind == 'video-ready': self.snapshot['videoReady'] = True
             if kind == 'subscribed': self.snapshot['subscribed'] = bool(data['active'])
             if kind == 'queued': self.snapshot['queuedMessages'] += data.get('count',1)
             if kind in ('failure','disconnected'):
                 self._fail('USB 会话已结束，请检查连接后重新应用')
             elif self.snapshot['connected']:
-                self.snapshot['state'] = 'reporting' if self.snapshot['subscribed'] and self.snapshot['helperAcceptedBatches'] else 'waiting-for-subscription'
+                if not self.snapshot['videoReady']:
+                    self.snapshot['state'] = 'waiting-for-video'
+                else:
+                    self.snapshot['state'] = 'reporting' if self.snapshot['subscribed'] and self.snapshot['helperAcceptedBatches'] else 'waiting-for-subscription'
 
     def confirm_adoption(self, session_id, expected_revision):
         with self.lock:
@@ -165,7 +169,7 @@ class SessionService:
                 return self.status()
             self.last_tick = now
             s = self.snapshot
-            if s['target'] and s['connected'] and s['subscribed'] and self.clock() >= self.next_send:
+            if s['target'] and s['connected'] and s['videoReady'] and s['subscribed'] and self.clock() >= self.next_send:
                 s['recovery'] = 'pending'
                 try:
                     self.backend.send(_nmea(s['target'], self.utcnow()))

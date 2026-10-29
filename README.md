@@ -30,6 +30,7 @@
 - [最终真机验收清单](docs/acceptance.md)
 - [2026-10-29 USB 真机验证结果](docs/device-validation-2026-10-29.md)
 - [2026-10-30 原控制器开启状态复测](docs/device-validation-2026-10-30.md)
+- [2026-10-30 Location Lab 应用验收](docs/app-validation-2026-10-30.md)
 
 ## 构建与运行
 

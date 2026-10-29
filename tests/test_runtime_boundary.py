@@ -26,6 +26,7 @@ def requests():
 threading.Thread(target=requests,daemon=True).start()
 print('wired: MFi auth succeeded',flush=True)
 print('location: subscribed [1,2]',flush=True)
+print(json.dumps({'showCarPlay':True}),flush=True)
 for line in sys.stdin:
  if line.strip()=='stop':
   # Fill output far beyond a pipe buffer during shutdown; reader must keep draining.
@@ -47,17 +48,23 @@ class RuntimeBoundaryTests(unittest.TestCase):
         self.fail(f'Timed out waiting for {description}: {service.status()}')
 
     def test_real_adapter_lifecycle_under_log_pressure_through_session_service(self):
+        self.exercise_receiver({'showCarPlay':True})
+
+    def test_hidden_video_ready_signal_also_releases_location_supply(self):
+        self.exercise_receiver({'showCarPlay':False,'hiddenVideoValidation':True})
+
+    def exercise_receiver(self, ready_event):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory)
             executable=root/'resources/runtime/MacPlayReceiver.app/Contents/MacOS/MacPlayReceiver'
-            executable.parent.mkdir(parents=True);executable.write_text(RECEIVER);executable.chmod(0o700)
+            executable.parent.mkdir(parents=True);executable.write_text(RECEIVER.replace("{'showCarPlay':True}",repr(ready_event)));executable.chmod(0o700)
             for name in ('resources/engine/main.js','data/authentication/identity.pk8',
                          'data/authentication/certificate.p7b','data/cp/macplay-v3/identity.json'):
                 path=root/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text('test fixture only')
             service=SessionService(USBBackend(root,enumerate_devices=lambda:['fixture-phone']),monotonic=lambda:0)
             try:
                 service.apply('fixture-phone',{'latitude':1,'longitude':2})
-                self.await_status(service,lambda s:s['connected'] and s['subscribed'],'receiver subscription')
+                self.await_status(service,lambda s:s['connected'] and s['videoReady'] and s['subscribed'],'receiver subscription')
                 service.tick()
                 self.await_status(service,lambda s:s['queuedMessages']>0,'receiver queue acknowledgement')
                 self.assertEqual(service.status()['helperAcceptedBatches'],1)

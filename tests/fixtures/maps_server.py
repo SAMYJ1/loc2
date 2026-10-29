@@ -14,7 +14,7 @@ class FixtureUSB:
     def __init__(self): self.devices=['test-phone'];self.running=False
     def device_ids(self): return self.devices.copy()
     def start(self,session,device,emit):
-        self.running=True;emit(session,'connected');emit(session,'subscribed',active=True)
+        self.running=True;emit(session,'connected');emit(session,'video-ready');emit(session,'subscribed',active=True)
     def send(self,frame): pass
     def stop(self): self.running=False
 

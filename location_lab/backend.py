@@ -122,8 +122,11 @@ class USBBackend:
                         event = json.loads(line)
                     except (ValueError,TypeError):
                         continue
-                    if isinstance(event,dict) and event.get('disconnected'):
-                        enqueue('disconnected')
+                    if isinstance(event,dict):
+                        if event.get('showCarPlay') is True or event.get('hiddenVideoValidation') is True:
+                            enqueue('video-ready')
+                        if event.get('disconnected'):
+                            enqueue('disconnected')
             except (OSError,ValueError):
                 pass
             finally:
