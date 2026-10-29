@@ -1,10 +1,12 @@
 import AppKit
 import Foundation
+import CoreImage
 import Darwin
 
 final class LocationApp: NSObject, NSApplicationDelegate {
     private var item: NSStatusItem!
     private var window: NSWindow!
+    private var pairingWindow: NSWindow!
     private let statusText = NSTextField(wrappingLabelWithString: "正在启动本机会话服务…")
     private let latitude = NSTextField(string: "")
     private let longitude = NSTextField(string: "")
@@ -15,6 +17,12 @@ final class LocationApp: NSObject, NSApplicationDelegate {
     private var state: [String: Any] = [:]
     private var timer: Timer?
     private var terminating = false
+    private let phoneText = NSTextField(wrappingLabelWithString: "手机控制尚未配置")
+    private let qrImage = NSImageView()
+    private let pendingRequests = NSPopUpButton()
+    private var phone: [String:Any] = [:]
+    private var pending: [[String:Any]] = []
+    private var lastPairingURL: String?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -23,6 +31,7 @@ final class LocationApp: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
         menu.addItem(withTitle: "打开详情", action: #selector(showDetails), keyEquivalent: "")
         menu.addItem(withTitle: "停止报点", action: #selector(stop), keyEquivalent: "")
+        menu.addItem(withTitle: "配对手机控制端", action: #selector(createPairing), keyEquivalent: "")
         menu.addItem(.separator())
         menu.addItem(withTitle: "退出", action: #selector(quit), keyEquivalent: "q")
         for entry in menu.items { entry.target = self }
@@ -35,7 +44,7 @@ final class LocationApp: NSObject, NSApplicationDelegate {
     }
 
     private func makeWindow() {
-        window = NSWindow(contentRect: NSRect(x: 0,y: 0,width: 500,height: 440), styleMask: [.titled,.closable,.miniaturizable], backing: .buffered, defer: false)
+        window = NSWindow(contentRect: NSRect(x: 0,y: 0,width: 500,height: 500), styleMask: [.titled,.closable,.miniaturizable], backing: .buffered, defer: false)
         window.title = "Location Lab"
         window.isReleasedWhenClosed = false
         window.center()
@@ -70,6 +79,35 @@ final class LocationApp: NSObject, NSApplicationDelegate {
         hint.textColor = .secondaryLabelColor
         hint.preferredMaxLayoutWidth = 450
         content.addArrangedSubview(hint)
+        content.addArrangedSubview(button("配对手机控制端",#selector(createPairing)))
+        makePairingWindow()
+    }
+
+    private func makePairingWindow() {
+        pairingWindow = NSWindow(contentRect: NSRect(x:0,y:0,width:540,height:460),styleMask:[.titled,.closable],backing:.buffered,defer:false)
+        pairingWindow.title = "配对手机控制端"
+        pairingWindow.isReleasedWhenClosed = false
+        pairingWindow.center()
+        let content = NSStackView()
+        content.orientation = .vertical;content.alignment = .leading;content.spacing = 14
+        content.edgeInsets = NSEdgeInsets(top:24,left:24,bottom:24,right:24)
+        content.translatesAutoresizingMaskIntoConstraints = false
+        pairingWindow.contentView!.addSubview(content)
+        NSLayoutConstraint.activate([
+            content.leadingAnchor.constraint(equalTo:pairingWindow.contentView!.leadingAnchor),
+            content.trailingAnchor.constraint(equalTo:pairingWindow.contentView!.trailingAnchor),
+            content.topAnchor.constraint(equalTo:pairingWindow.contentView!.topAnchor)
+        ])
+        phoneText.preferredMaxLayoutWidth = 460
+        content.addArrangedSubview(phoneText)
+        qrImage.imageScaling = .scaleProportionallyUpOrDown
+        qrImage.widthAnchor.constraint(equalToConstant: 174).isActive = true
+        qrImage.heightAnchor.constraint(equalToConstant: 174).isActive = true
+        let pairBox = NSStackView(views: [qrImage,button("生成配对二维码",#selector(createPairing))]);pairBox.spacing = 16
+        content.addArrangedSubview(pairBox)
+        pendingRequests.widthAnchor.constraint(equalToConstant: 460).isActive = true
+        content.addArrangedSubview(pendingRequests)
+        content.addArrangedSubview(NSStackView(views: [button("允许所选控制端",#selector(approvePairing)),button("拒绝",#selector(denyPairing))]))
     }
 
     private func button(_ title: String, _ selector: Selector) -> NSButton {
@@ -126,6 +164,8 @@ final class LocationApp: NSObject, NSApplicationDelegate {
             guard let response = (try? JSONSerialization.jsonObject(with: line)) as? [String: Any] else { continue }
             if let snapshot = response["status"] as? [String: Any] { state = snapshot;render() }
             if let error = response["error"] as? String { statusText.stringValue = error }
+            if let details = response["phone"] as? [String:Any] { phone = details;renderPhone() }
+            if let error = response["error"] as? String, pairingWindow.isVisible { phoneText.stringValue = error }
         }
     }
 
@@ -143,6 +183,46 @@ final class LocationApp: NSObject, NSApplicationDelegate {
         } else { targetText.stringValue = "未应用目标位置；重连后需重新点击应用。" }
     }
 
+    private func renderPhone() {
+        phoneText.stringValue = phone["error"] as? String ?? "扫码后需在此确认。控制端名称由浏览器声明，不是设备身份证明。"
+        if let device = phone["pairingDevice"] as? String { phoneText.stringValue += "\n目标 USB 手机：\(device)" }
+        let url = phone["pairingURL"] as? String
+        if url != lastPairingURL {
+            lastPairingURL = url;qrImage.image = nil
+            if let url = url, let filter = CIFilter(name: "CIQRCodeGenerator") {
+                filter.setValue(Data(url.utf8), forKey: "inputMessage")
+                filter.setValue("M",forKey: "inputCorrectionLevel")
+                if let image = filter.outputImage?.transformed(by: CGAffineTransform(scaleX: 6,y: 6)), let cg = CIContext().createCGImage(image,from:image.extent) {
+                    let padded = NSImage(size:NSSize(width:174,height:174))
+                    padded.lockFocus()
+                    NSColor.white.setFill();NSRect(x:0,y:0,width:174,height:174).fill()
+                    NSGraphicsContext.current?.imageInterpolation = .none
+                    NSImage(cgImage:cg,size:NSSize(width:150,height:150)).draw(in:NSRect(x:12,y:12,width:150,height:150))
+                    padded.unlockFocus();qrImage.image = padded
+                }
+            }
+        }
+        let selection = pendingRequests.indexOfSelectedItem
+        pending = phone["pending"] as? [[String:Any]] ?? []
+        pendingRequests.removeAllItems()
+        for request in pending {
+            pendingRequests.addItem(withTitle: "\(request["label"] ?? "控制端") → \(request["deviceId"] ?? "未知手机")")
+        }
+        if pending.isEmpty { pendingRequests.addItem(withTitle: "暂无待确认请求") }
+        else if selection >= 0 && selection < pending.count { pendingRequests.selectItem(at:selection) }
+        pendingRequests.isEnabled = !pending.isEmpty
+    }
+    @objc private func createPairing() { pairingWindow.makeKeyAndOrderFront(nil);NSApp.activate(ignoringOtherApps:true);send("pairing-create") }
+    @objc private func approvePairing() {
+        let index = pendingRequests.indexOfSelectedItem
+        guard pending.indices.contains(index), let id = pending[index]["requestId"] as? String else { return }
+        send("pairing-approve",values:["requestId":id])
+    }
+    @objc private func denyPairing() {
+        let index = pendingRequests.indexOfSelectedItem
+        guard pending.indices.contains(index), let id = pending[index]["requestId"] as? String else { return }
+        send("pairing-deny",values:["requestId":id])
+    }
     @objc private func showDetails() { window.makeKeyAndOrderFront(nil);NSApp.activate(ignoringOtherApps: true) }
     @objc private func apply() {
         guard let lat = Double(latitude.stringValue), let lon = Double(longitude.stringValue), lat.isFinite, lon.isFinite else {
