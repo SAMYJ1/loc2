@@ -2,7 +2,7 @@
 
 个人使用的 USB iPhone 定位应用项目：手机网页选择目标位置，Mac 接收控制指令并通过 USB 配件链路提供位置。
 
-当前阶段：**应用开发中，真机验收待统一执行。** 已有 USB 短时固定点行为验证；新应用的离线测试不能替代手机位置采用、锁屏持续运行或恢复真实位置的验收。
+当前阶段：**应用代码已完成，真机验收待统一执行。** 已有 USB 短时固定点行为验证；新应用的离线测试不能替代手机位置采用、锁屏持续运行或恢复真实位置的验收。
 
 规格见 [Issue #1](https://github.com/SAMYJ1/location-lab/issues/1)，最终现场验收跟踪于 [Issue #9](https://github.com/SAMYJ1/location-lab/issues/9)。用户已确定先按既有 USB 路径开发，开发结束后统一真机验证。
 
@@ -22,7 +22,21 @@
 - [架构决策：手机控制与 USB 会话分开](docs/adr/0001-separate-phone-control-from-usb-session.md)
 - [USB 实测基线与限制](docs/validation-baseline.md)
 - [Mac 应用构建与本机配置](docs/mac-app.md)
+- [手机配对、持久授权与撤销](docs/phone-control.md)
+- [常用点收藏](docs/favorites.md)
+- [Apple 地图选点与校准策略](docs/apple-map-selection.md)
 - [USB 隐藏画面准备工具](tools/usb_validation/README.md)
 - [地图验证工具](docs/map-validation.md)
+- [最终真机验收清单](docs/acceptance.md)
+
+## 构建与运行
+
+```sh
+python3 -m unittest discover -s tests -v
+sh scripts/build-mac-app.sh
+open 'build/Location Lab.app'
+```
+
+应用默认不启动定位会话。按本机配置说明提供隔离运行时与局域网地址后，手机才能通过二维码请求授权；只有明确应用位置才会启动 USB 会话。
 
 应用不包含第三方运行时或认证资料；本机配置和现场验收步骤见各工具说明。地图令牌、实际局域网入口、隐藏画面后的稳定性及坐标校准仍待验证。
