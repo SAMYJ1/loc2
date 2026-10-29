@@ -1,0 +1,31 @@
+# macOS and editors
+.DS_Store
+.idea/
+.vscode/
+
+# Local credentials and experiment state
+.env
+.env.*
+!.env.example
+*.private.*
+secrets/
+work/
+runtime/
+*.pem
+*.key
+*.p12
+*.mobileprovision
+
+# Build products
+.build/
+DerivedData/
+build/
+dist/
+node_modules/
+*.app/
+*.dSYM/
+*.xcuserstate
+xcuserdata/
+
+# Runtime logs
+*.log
