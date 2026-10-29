@@ -55,4 +55,12 @@ class MapTests(unittest.TestCase):
         self.assertNotIn('{{MAPKIT_NONCE}}',body)
         self.assertEqual(self.request('/maps.js')[0],200)
 
+    def test_signing_key_cannot_be_returned_as_page_token(self):
+        self.pair()
+        self.control.maps_config=dict(token='-----BEGIN PRIVATE KEY-----\nSYNTHETIC-NOT-A-KEY\n-----END PRIVATE KEY-----')
+        code,result,_=self.request('/api/maps-config')
+        self.assertEqual(code,200)
+        self.assertIsNone(result['token'])
+        self.assertNotIn('PRIVATE KEY',str(result))
+
 del PhoneTests

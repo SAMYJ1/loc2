@@ -50,6 +50,7 @@ async function scenario(config, sdkMode='fixture') {
      assert.equal((await page.evaluate(()=>window.locationLab.getDraft())).latitude,32);
     } else {
      assert.equal(draft.inputCRS,'unverified-mapkit');assert.equal(draft.normalizedWGS84,null);
+     assert.equal(await page.locator('#draft-source').textContent(),'Apple 地图 · 待校准');
      assert.equal(await page.getByRole('button',{name:'应用位置',exact:true}).isDisabled(),true);
      assert.equal(await page.getByLabel('WGS84 纬度').inputValue(),'','unknown CRS must not fill WGS84 fields');
     }
