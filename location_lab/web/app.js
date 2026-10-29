@@ -1,6 +1,6 @@
 'use strict';
 const $ = id => document.getElementById(id);
-let state = null, draft = null, busy = false, reachable = false, pairing = null;
+let state = null, draft = null, busy = false, reachable = false, pairing = null, mapPolicy = false;
 function randomHex() {
   const bytes = new Uint8Array(32);
   crypto.getRandomValues(bytes);
@@ -17,8 +17,9 @@ function getState() { return state ? structuredClone(state) : null; }
 function getDraft() { return draft ? structuredClone(draft) : null; }
 function setDraft(point) {
   draft = point ? structuredClone(point) : null;
-  if (point) { $('latitude').value = point.latitude ?? ''; $('longitude').value = point.longitude ?? ''; }
+  if (point) { $('latitude').value = point.provider === 'apple-mapkit-js' ? '' : point.latitude ?? ''; $('longitude').value = point.provider === 'apple-mapkit-js' ? '' : point.longitude ?? ''; }
   $('draft-status').textContent = point ? '草稿已更新，点击应用后才改变目标位置。':'请输入有效的 WGS84 经纬度。';
+  if (point?.provider === 'apple-mapkit-js') $('draft-status').textContent = `Apple 地图草稿：${point.latitude}, ${point.longitude} · ${point.inputCRS === 'WGS84' && mapPolicy ? '已配置 WGS84 校准策略，明确应用后才改变目标。' : '尚未校准，不能应用；可改用手工 WGS84。'}`;
   render(); window.dispatchEvent(new CustomEvent('locationlab:draft',{detail:getDraft()}));
 }
 function manualDraft() {
@@ -28,7 +29,8 @@ function manualDraft() {
 }
 function render() {
   const s = state?.status;
-  $('apply').disabled = busy || !reachable || !draft || !s || !s.availableDevices.includes(state.deviceId);
+  $('draft-source').textContent = draft?.provider === 'apple-mapkit-js' ? (mapPolicy && draft.inputCRS === 'WGS84' ? 'Apple 地图 · WGS84' : 'Apple 地图 · 待校准') : 'WGS84 输入';
+  $('apply').disabled = busy || !reachable || !draft || (draft.provider === 'apple-mapkit-js' && (!mapPolicy || draft.inputCRS !== 'WGS84' || !draft.normalizedWGS84)) || !s || !s.availableDevices.includes(state.deviceId);
   $('stop').disabled = busy || !reachable || !s?.sessionId;
   if (!state) return;
   const names = {ready:'USB 已就绪',disconnected:'USB 未连接',connecting:'目标已接受，USB 正在连接', 'waiting-for-subscription':'USB 已连接，等待手机订阅',reporting:'正在报点',stopped:'已停止报点',error:'USB 会话异常'};
@@ -85,5 +87,5 @@ async function begin() {
 }
 $('latitude').addEventListener('input',manualDraft);$('longitude').addEventListener('input',manualDraft);
 $('apply').addEventListener('click',()=>command('apply'));$('stop').addEventListener('click',()=>command('stop'));
-window.locationLab = {setDraft,getDraft,request,getState};
+window.locationLab = {setDraft,getDraft,request,getState,setMapPolicy(value) { mapPolicy = value === true; if (draft?.provider === 'apple-mapkit-js') setDraft(draft); else render(); }};
 begin();

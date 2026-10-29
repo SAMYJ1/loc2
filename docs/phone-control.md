@@ -65,3 +65,5 @@ sh scripts/build-mac-app.sh
 浏览器测试自动启动仅含合成 USB 后端的 loopback fixture，通过同一 private dispatch 完成 Mac 批准。覆盖授权前拒绝、一次性二维码、Cookie、未接线草稿、重连明确应用、草稿隔离和停止；HTTP 测试还覆盖错误目标、旧 revision、过期与重放请求、Host/Origin 拒绝和其他手机会话隔离。
 
 这些检查不启动真实 USB。手机 Safari、主屏幕入口、二维码扫描、局域网网络条件与持续 USB 会话仍归最终真机验收。
+
+地图选点现已接入独立模块；本机令牌和坐标策略、授权配置接口及现场校准边界见 [Apple 地图选点](apple-map-selection.md)。

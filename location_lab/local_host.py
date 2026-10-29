@@ -54,7 +54,7 @@ def main():
     if config.get('phone'):
         try:
             settings=config['phone']
-            phone=PhoneControl(service)
+            phone=PhoneControl(service,maps_config=config.get('maps'))
             phone_server=PhoneServer((settings['bindAddress'],int(settings.get('port',8765))),phone,settings['advertisedHost'])
             threading.Thread(target=phone_server.serve_forever,daemon=True).start()
         except (ValueError,KeyError,TypeError,OSError):

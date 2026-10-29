@@ -1,0 +1,7 @@
+.map-tools { margin-top:20px; border-top:1px solid var(--line); padding-top:16px; }
+.map-tools h3 {font-size:16px; margin:0 0 10px;}
+#maps-load {width:100%;}
+#apple-map {height:300px; margin:12px 0; border-radius:10px; overflow:hidden;}
+#maps-search button {width:100%; margin-top:10px;}
+#maps-results {list-style:none; padding:0; margin:12px 0 0;}
+#maps-results button {width:100%; text-align:left; padding:10px; margin-bottom:8px; overflow-wrap:anywhere;}
