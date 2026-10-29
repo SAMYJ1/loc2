@@ -2,7 +2,7 @@
 
 个人使用的 USB iPhone 定位应用项目：手机网页选择目标位置，Mac 接收控制指令并通过 USB 配件链路提供位置。
 
-当前阶段：**应用代码已完成，真机验收待统一执行。** 已有 USB 短时固定点行为验证；新应用的离线测试不能替代手机位置采用、锁屏持续运行或恢复真实位置的验收。
+当前阶段：**应用代码已完成，首轮真机验证未通过位置采用验收。** 本轮已连通 USB 并报点，但用户观察到 Apple 地图仍为真实位置；新应用的离线测试不能替代手机位置采用、锁屏持续运行或恢复真实位置的验收。
 
 规格见 [Issue #1](https://github.com/SAMYJ1/location-lab/issues/1)，最终现场验收跟踪于 [Issue #9](https://github.com/SAMYJ1/location-lab/issues/9)。用户已确定先按既有 USB 路径开发，开发结束后统一真机验证。
 
@@ -28,6 +28,7 @@
 - [USB 隐藏画面准备工具](tools/usb_validation/README.md)
 - [地图验证工具](docs/map-validation.md)
 - [最终真机验收清单](docs/acceptance.md)
+- [2026-10-29 USB 真机验证结果](docs/device-validation-2026-10-29.md)
 
 ## 构建与运行
 
