@@ -208,38 +208,47 @@ final class LocationApp: NSObject, NSApplicationDelegate {
                 }
             }
         }
-        let selection = pendingRequests.indexOfSelectedItem
+        let selectedRequestId = pendingRequests.selectedItem?.representedObject as? String
         pending = phone["pending"] as? [[String:Any]] ?? []
         pendingRequests.removeAllItems()
+        pendingRequests.addItem(withTitle: pending.isEmpty ? "暂无待确认请求" : "请选择需要确认的控制端")
         for request in pending {
             pendingRequests.addItem(withTitle: "\(request["label"] ?? "控制端") → \(request["deviceId"] ?? "未知手机")")
+            pendingRequests.lastItem?.representedObject = request["requestId"] as? String
         }
-        if pending.isEmpty { pendingRequests.addItem(withTitle: "暂无待确认请求") }
-        else if selection >= 0 && selection < pending.count { pendingRequests.selectItem(at:selection) }
+        if let selectedRequestId = selectedRequestId,
+           let selectedItem = pendingRequests.itemArray.first(where: { $0.representedObject as? String == selectedRequestId }) {
+            pendingRequests.select(selectedItem)
+        }
         pendingRequests.isEnabled = !pending.isEmpty
-        let selectedGrant = authorizedControllers.indexOfSelectedItem
-        let selectedId = grants.indices.contains(selectedGrant) ? grants[selectedGrant]["grantId"] as? String : nil
+        let selectedId = authorizedControllers.selectedItem?.representedObject as? String
         grants = phone["grants"] as? [[String:Any]] ?? []
         authorizedControllers.removeAllItems()
-        for grant in grants { authorizedControllers.addItem(withTitle:"\(grant["label"] ?? "控制端") → \(grant["deviceId"] ?? "未知手机")") }
-        if grants.isEmpty { authorizedControllers.addItem(withTitle:"暂无已授权控制端") }
-        else if let selectedId = selectedId, let index = grants.firstIndex(where: { $0["grantId"] as? String == selectedId }) { authorizedControllers.selectItem(at:index) }
+        authorizedControllers.addItem(withTitle: grants.isEmpty ? "暂无已授权控制端" : "请选择需要撤销的控制端")
+        for grant in grants {
+            authorizedControllers.addItem(withTitle:"\(grant["label"] ?? "控制端") → \(grant["deviceId"] ?? "未知手机")")
+            authorizedControllers.lastItem?.representedObject = grant["grantId"] as? String
+        }
+        if let selectedId = selectedId,
+           let selectedItem = authorizedControllers.itemArray.first(where: { $0.representedObject as? String == selectedId }) {
+            authorizedControllers.select(selectedItem)
+        }
         authorizedControllers.isEnabled = !grants.isEmpty
     }
     @objc private func revokeAuthorization() {
-        let index = authorizedControllers.indexOfSelectedItem
-        guard grants.indices.contains(index), let id = grants[index]["grantId"] as? String else { return }
+        guard let id = authorizedControllers.selectedItem?.representedObject as? String,
+              grants.contains(where: { $0["grantId"] as? String == id }) else { return }
         send("pairing-revoke",values:["grantId":id])
     }
     @objc private func createPairing() { pairingWindow.makeKeyAndOrderFront(nil);NSApp.activate(ignoringOtherApps:true);send("pairing-create") }
     @objc private func approvePairing() {
-        let index = pendingRequests.indexOfSelectedItem
-        guard pending.indices.contains(index), let id = pending[index]["requestId"] as? String else { return }
+        guard let id = pendingRequests.selectedItem?.representedObject as? String,
+              pending.contains(where: { $0["requestId"] as? String == id }) else { return }
         send("pairing-approve",values:["requestId":id])
     }
     @objc private func denyPairing() {
-        let index = pendingRequests.indexOfSelectedItem
-        guard pending.indices.contains(index), let id = pending[index]["requestId"] as? String else { return }
+        guard let id = pendingRequests.selectedItem?.representedObject as? String,
+              pending.contains(where: { $0["requestId"] as? String == id }) else { return }
         send("pairing-deny",values:["requestId":id])
     }
     @objc private func showDetails() { window.makeKeyAndOrderFront(nil);NSApp.activate(ignoringOtherApps: true) }
@@ -257,10 +266,13 @@ final class LocationApp: NSObject, NSApplicationDelegate {
     @objc private func stop() { send("stop") }
     @objc private func sleep() { send("sleep") }
     @objc private func confirmAdoption() {
-        guard let session = state["sessionId"] as? String else { return }
-        send("confirm-adoption",values:["sessionId":session])
+        guard let session = state["sessionId"] as? String, let revision = state["controlRevision"] as? Int else { return }
+        send("confirm-adoption",values:["sessionId":session,"controlRevision":revision])
     }
-    @objc private func confirmRecovery() { send("confirm-recovery") }
+    @objc private func confirmRecovery() {
+        guard let revision = state["controlRevision"] as? Int else { return }
+        send("confirm-recovery",values:["controlRevision":revision])
+    }
     @objc private func quit() { NSApp.terminate(nil) }
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         terminating = true;timer?.invalidate();send("quit")

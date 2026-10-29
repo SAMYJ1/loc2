@@ -39,8 +39,9 @@ function render() {
     $('recovery').textContent = '撤销授权不代表已停止报点；可在 Mac 菜单栏停止。';
     return;
   }
-  const names = {ready:'USB 已就绪',disconnected:'USB 未连接',connecting:'目标已接受，USB 正在连接', 'waiting-for-subscription':'USB 已连接，等待手机订阅',reporting:'正在报点',stopped:'已停止报点',error:'USB 会话异常'};
-  $('connection').textContent = reachable ? `Mac 已连接 · ${names[s.state] || s.state}`:'无法连接 Mac，请检查同网连接；可在 Mac 菜单栏停止报点。';
+  const names = {ready:'会话就绪',disconnected:'尚未建立会话',connecting:'目标已接受，正在建立会话', 'waiting-for-subscription':'等待手机订阅',reporting:'正在报点',stopped:'已停止报点',error:'会话异常'};
+  const usbPresence = s.availableDevices.includes(state.deviceId) ? 'USB 已连接' : 'USB 未连接';
+  $('connection').textContent = reachable ? `Mac 已连接 · ${usbPresence} · ${names[s.state] || s.state}`:'无法连接 Mac，请检查同网连接；可在 Mac 菜单栏停止报点。';
   $('pairing').textContent = '配对授权已确认。可将此页面添加到主屏幕。';
   $('device').textContent = `授权目标手机：${state.deviceId}`;
   $('accepted').textContent = s.target ? `已接受目标：${s.target.latitude}, ${s.target.longitude} · WGS84`:'尚未应用目标位置';
