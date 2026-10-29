@@ -2,7 +2,9 @@
 
 个人使用的 USB iPhone 定位应用项目：手机网页选择目标位置，Mac 接收控制指令并通过 USB 配件链路提供位置。
 
-当前阶段：**方案已确认，尚未开始应用实现。** 已有 USB 短时固定点行为验证，新应用的完整流程仍需开发和验收。
+当前阶段：**应用开发中，真机验收待统一执行。** 已有 USB 短时固定点行为验证；新应用的离线测试不能替代手机位置采用、锁屏持续运行或恢复真实位置的验收。
+
+规格见 [Issue #1](https://github.com/SAMYJ1/location-lab/issues/1)，最终现场验收跟踪于 [Issue #9](https://github.com/SAMYJ1/location-lab/issues/9)。用户已确定先按既有 USB 路径开发，开发结束后统一真机验证。
 
 ## 已确定的体验
 
@@ -19,5 +21,8 @@
 - [领域术语](GLOSSARY.md)
 - [架构决策：手机控制与 USB 会话分开](docs/adr/0001-separate-phone-control-from-usb-session.md)
 - [USB 实测基线与限制](docs/validation-baseline.md)
+- [Mac 应用构建与本机配置](docs/mac-app.md)
+- [USB 隐藏画面准备工具](tools/usb_validation/README.md)
+- [地图验证工具](docs/map-validation.md)
 
-下一步先验证隐藏 CarPlay 画面后的稳定性、Apple 地图在实际局域网入口的可用性及坐标校准，再推进 Mac 应用与手机控制页面。
+应用不包含第三方运行时或认证资料；本机配置和现场验收步骤见各工具说明。地图令牌、实际局域网入口、隐藏画面后的稳定性及坐标校准仍待验证。
