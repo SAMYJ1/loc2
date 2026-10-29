@@ -12,6 +12,7 @@ from .backend import USBBackend
 from .session import SessionService
 from .phone import PhoneControl, PhoneServer
 from .grants import AuthorizationStorageError
+from .favorites import FavoritesStorageError
 
 
 def runtime_config(path):
@@ -59,7 +60,7 @@ def main():
             phone=PhoneControl(service,state_dir=Path(config.get('stateDirectory',args.config.parent)).expanduser(),maps_config=config.get('maps'))
             phone_server=PhoneServer((settings['bindAddress'],int(settings.get('port',8765))),phone,settings['advertisedHost'])
             threading.Thread(target=phone_server.serve_forever,daemon=True).start()
-        except AuthorizationStorageError as error:
+        except (AuthorizationStorageError,FavoritesStorageError) as error:
             phone=None;phone_error=str(error)
         except (ValueError,KeyError,TypeError,OSError):
             phone=None;phone_error='手机控制服务无法启动，请检查本机 phone 地址配置'

@@ -10,6 +10,7 @@ from pathlib import Path
 import re
 import secrets
 import time
+from .favorites import FavoritesStore
 
 from .maps import public_settings, validate_map_point
 
@@ -38,6 +39,7 @@ class PhoneControl:
         self.grant_store = GrantStore(self.state_dir/'grants.json' if self.state_dir else None)
         self.grants = self.grant_store.load()
         self.origin = None
+        self.favorites=FavoritesStore(self.state_dir/"favorites.json" if self.state_dir else None)
         self.storage_failed = False
         self.maps_config = dict(maps_config) if isinstance(maps_config,dict) else {}
 
@@ -132,6 +134,11 @@ class PhoneControl:
             self.authorize(token)
             return public_settings(self.maps_config)
 
+    def favorite_list(self,token):
+        with self.lock:
+            grant=self.authorize(token)
+            return dict(favorites=self.favorites.list(grant['deviceId']))
+
     def command(self, token, action, body):
         with self.lock:
             grant=self.authorize(token)
@@ -166,6 +173,10 @@ class PhoneControl:
                         raise ValueError('请使用明确标注的 WGS84 手工坐标')
                     self.service.apply(grant['deviceId'],point,current['sessionId'])
                 elif action=='stop': self.service.stop(expected_session_id=current['sessionId'])
+                elif action=='favorites/add':
+                    return dict(favorites=self.favorites.add(grant['deviceId'],body.get('name'),body.get('point')))
+                elif action=='favorites/remove':
+                    return dict(favorites=self.favorites.remove(grant['deviceId'],body.get('favoriteId')))
                 else: raise RequestError('操作不存在',404)
             except ValueError as error:
                 raise RequestError(str(error)) from None
@@ -230,7 +241,8 @@ class PhoneHandler(BaseHTTPRequestHandler):
             self._headers()
             if self.path=='/api/status': return self._reply(200,self.server.control.status(self._cookie()))
             if self.path=='/api/maps-config': return self._reply(200,self.server.control.map_settings(self._cookie()))
-            static={'/':('index.html','text/html; charset=utf-8'),'/app.js':('app.js','text/javascript; charset=utf-8'),'/maps.js':('maps.js','text/javascript; charset=utf-8'),'/maps.css':('maps.css','text/css; charset=utf-8'),'/style.css':('style.css','text/css; charset=utf-8')}
+            if self.path=='/api/favorites': return self._reply(200,self.server.control.favorite_list(self._cookie()))
+            static={'/':('index.html','text/html; charset=utf-8'),'/app.js':('app.js','text/javascript; charset=utf-8'),'/maps.js':('maps.js','text/javascript; charset=utf-8'),'/maps.css':('maps.css','text/css; charset=utf-8'),'/favorites.js':('favorites.js','text/javascript; charset=utf-8'),'/favorites.css':('favorites.css','text/css; charset=utf-8'),'/style.css':('style.css','text/css; charset=utf-8')}
             if self.path not in static: raise RequestError('页面不存在',404)
             name,mime=static[self.path];self._reply(200,(WEB/name).read_bytes(),mime)
         except RequestError as error: self._reply(error.status,dict(error=str(error)),clear_cookie=error.status==401)
@@ -251,7 +263,7 @@ class PhoneHandler(BaseHTTPRequestHandler):
             control=self.server.control
             if self.path=='/api/pair/request': result,cookie=control.request_pairing(body),None
             elif self.path=='/api/pair/poll': result,cookie=control.poll_pairing(body)
-            elif self.path in ('/api/apply','/api/stop'): result,cookie=control.command(self._cookie(),self.path[5:],body),None
+            elif self.path in ('/api/apply','/api/stop','/api/favorites/add','/api/favorites/remove'): result,cookie=control.command(self._cookie(),self.path[5:],body),None
             else: raise RequestError('操作不存在',404)
             self._reply(200,result,cookie=cookie)
         except RequestError as error: self._reply(error.status,dict(error=str(error)),clear_cookie=error.status==401)
