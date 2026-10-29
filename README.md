@@ -34,6 +34,7 @@
 - [外部位置间歇采用的社区与官方证据调查](docs/research/community-location-adoption-2026-10-30.md)
 - [赛银国际广场：老链路与应用附近点成功对照](docs/saiyin-validation-2026-10-30.md)
 - [隐藏模式修复与附近点验收](docs/hidden-mode-validation-2026-10-30.md)
+- [无 USB：Wi-Fi＋蓝牙与纯蓝牙验证](docs/wireless-validation-2026-10-30.md)
 
 ## 构建与运行
 
