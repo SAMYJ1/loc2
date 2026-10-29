@@ -11,6 +11,8 @@ import time
 from .backend import USBBackend
 from .session import SessionService
 from .phone import PhoneControl, PhoneServer
+from .grants import AuthorizationStorageError
+from .favorites import FavoritesStorageError
 
 
 def runtime_config(path):
@@ -28,6 +30,7 @@ def dispatch(service, request, phone=None):
         if phone is None: raise ValueError('请先在本机配置 phone 局域网地址并重新打开应用')
         if action=='pairing-create': phone.create_pairing()
         elif action=='pairing-approve': phone.approve(request.get('requestId'))
+        elif action=='pairing-revoke': phone.revoke(request.get('grantId'))
         elif action=='pairing-deny': phone.deny(request.get('requestId'))
         elif action!='pairing-status': raise ValueError('不支持的配对操作')
         return service.status()
@@ -54,9 +57,11 @@ def main():
     if config.get('phone'):
         try:
             settings=config['phone']
-            phone=PhoneControl(service)
+            phone=PhoneControl(service,state_dir=Path(config.get('stateDirectory',args.config.parent)).expanduser())
             phone_server=PhoneServer((settings['bindAddress'],int(settings.get('port',8765))),phone,settings['advertisedHost'])
             threading.Thread(target=phone_server.serve_forever,daemon=True).start()
+        except (AuthorizationStorageError,FavoritesStorageError) as error:
+            phone=None;phone_error=str(error)
         except (ValueError,KeyError,TypeError,OSError):
             phone=None;phone_error='手机控制服务无法启动，请检查本机 phone 地址配置'
     requests=queue.Queue()
