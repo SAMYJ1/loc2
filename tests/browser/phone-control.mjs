@@ -37,6 +37,14 @@ try {
   await page.getByRole('button',{name:'停止报点',exact:true}).click();
   await page.waitForFunction(()=>document.querySelector('#connection').textContent.includes('已停止报点'));
   const stopped=await command('snapshot');assert.equal(stopped.running,false);assert.equal(stopped.status.target,null);
+  await page.waitForFunction(()=>document.querySelector('#connection').textContent.includes('USB 已连接'));
+  await command('disconnect');
+  await page.waitForFunction(()=>document.querySelector('#connection').textContent.includes('USB 未连接'));
+  assert.match(await page.locator('#connection').textContent(),/已停止报点/);
+  await command('reconnect');
+  await page.waitForFunction(()=>document.querySelector('#connection').textContent.includes('USB 已连接'));
+  assert.match(await page.locator('#connection').textContent(),/已停止报点/);
+  assert.equal((await command('snapshot')).running,false);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
   await page.screenshot({path:process.env.PHONE_SCREENSHOT || '/tmp/location-lab-phone-control.png',fullPage:true});
   console.log('PASS pairing → private Mac approval → HttpOnly grant → unplugged draft → explicit apply → draft isolation → stop');

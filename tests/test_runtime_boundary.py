@@ -14,7 +14,11 @@ def requests():
  while True:
   c,_=sock.accept()
   with c:
-   data=c.recv(10000)
+   data=b''
+   while b'\\n' not in data and len(data)<10000:
+    part=c.recv(1024)
+    if not part: break
+    data+=part
    frame=base64.b64decode(data.split(b' ',1)[1].strip())
    valid=frame.startswith(b'$GPGGA,') and b'$GPRMC,' in frame
    c.sendall(json.dumps({'ok':valid}).encode()+b'\\n')
@@ -31,6 +35,17 @@ for line in sys.stdin:
 '''
 
 class RuntimeBoundaryTests(unittest.TestCase):
+    def await_status(self, service, predicate, description):
+        # Readiness comes from the external receiver's actual subscription events.
+        # Keep wall-clock scheduling out of the service throttle/clock-gap tests.
+        deadline=time.monotonic()+10
+        while time.monotonic()<deadline:
+            status=service.status()
+            if predicate(status): return status
+            self.assertNotEqual(status['state'],'error',f'{description}: {status}')
+            time.sleep(.01)
+        self.fail(f'Timed out waiting for {description}: {service.status()}')
+
     def test_real_adapter_lifecycle_under_log_pressure_through_session_service(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory)
@@ -39,12 +54,12 @@ class RuntimeBoundaryTests(unittest.TestCase):
             for name in ('resources/engine/main.js','data/authentication/identity.pk8',
                          'data/authentication/certificate.p7b','data/cp/macplay-v3/identity.json'):
                 path=root/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text('test fixture only')
-            service=SessionService(USBBackend(root,enumerate_devices=lambda:['fixture-phone']))
+            service=SessionService(USBBackend(root,enumerate_devices=lambda:['fixture-phone']),monotonic=lambda:0)
             try:
                 service.apply('fixture-phone',{'latitude':1,'longitude':2})
-                deadline=time.monotonic()+3
-                while time.monotonic()<deadline and service.status()['queuedMessages']==0:
-                    service.tick();time.sleep(.02)
+                self.await_status(service,lambda s:s['connected'] and s['subscribed'],'receiver subscription')
+                service.tick()
+                self.await_status(service,lambda s:s['queuedMessages']>0,'receiver queue acknowledgement')
                 self.assertEqual(service.status()['helperAcceptedBatches'],1)
                 self.assertGreater(service.status()['queuedMessages'],0)
                 started=time.monotonic();service.stop()

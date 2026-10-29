@@ -56,7 +56,7 @@ class SessionService:
         self.utcnow = utcnow or (lambda:dt.datetime.now(dt.timezone.utc))
         self.lock = threading.RLock()
         self.snapshot = dict(controlEpoch=str(uuid.uuid4()), controlRevision=0, sessionId=None, deviceId=None, availableDevices=[], connected=False,
-            subscribed=False, target=None, state='disconnected', helperAcceptedBatches=0,
+            subscribed=False, target=None, state='disconnected', helperAcceptedBatches=0, targetAcceptedBatches=0,
             queuedMessages=0, adoption='unverified', recovery='not-required', error=None)
         self.next_send = 0
         self.last_tick = None
@@ -103,6 +103,7 @@ class SessionService:
             if not self.snapshot['sessionId']:
                 raise ValueError('USB 会话启动时已结束，请检查连接')
             self.snapshot['target'] = point
+            self.snapshot['targetAcceptedBatches'] = 0
             self.snapshot['controlRevision'] += 1
             self.snapshot['adoption'] = 'unverified'
             return self.status()
@@ -112,7 +113,7 @@ class SessionService:
             if expected_session_id is not None and expected_session_id != self.snapshot['sessionId']:
                 raise ValueError('会话已变化，请刷新后重试')
             self.snapshot['controlRevision'] += 1
-            self.snapshot.update(sessionId=None, target=None, connected=False, subscribed=False,
+            self.snapshot.update(sessionId=None, target=None, targetAcceptedBatches=0, connected=False, subscribed=False,
                                  state='stopped', adoption='unverified', stopReason=reason)
             self.next_send = 0
             self.last_tick = None
@@ -138,17 +139,21 @@ class SessionService:
             elif self.snapshot['connected']:
                 self.snapshot['state'] = 'reporting' if self.snapshot['subscribed'] and self.snapshot['helperAcceptedBatches'] else 'waiting-for-subscription'
 
-    def confirm_adoption(self, session_id):
+    def confirm_adoption(self, session_id, expected_revision):
         with self.lock:
-            if not session_id or session_id != self.snapshot['sessionId'] or not self.snapshot['helperAcceptedBatches']:
-                raise ValueError('只能确认当前已报点会话的位置采用')
+            if (not session_id or session_id != self.snapshot['sessionId']
+                    or isinstance(expected_revision,bool) or not isinstance(expected_revision,int)
+                    or expected_revision != self.snapshot['controlRevision']
+                    or not self.snapshot['targetAcceptedBatches']):
+                raise ValueError('只能确认当前已报点目标的位置采用，请刷新后核对目标')
             self.snapshot['adoption'] = 'user-confirmed'
             return self.status()
 
-    def confirm_recovery(self):
+    def confirm_recovery(self, expected_revision):
         with self.lock:
-            if self.snapshot['sessionId']:
-                raise ValueError('请先停止报点，再确认真实位置恢复')
+            if (self.snapshot['sessionId'] or isinstance(expected_revision,bool)
+                    or not isinstance(expected_revision,int) or expected_revision != self.snapshot['controlRevision']):
+                raise ValueError('请刷新并确认当前会话已停止，再确认真实位置恢复')
             self.snapshot['recovery'] = 'user-confirmed'
             return self.status()
 
@@ -168,6 +173,7 @@ class SessionService:
                     self._fail('报点失败，会话已停止；请单独确认真实位置恢复')
                     return self.status()
                 s['helperAcceptedBatches'] += 1
+                s['targetAcceptedBatches'] += 1
                 s['state'] = 'reporting'
                 s['recovery'] = 'pending'
                 self.next_send = self.clock() + 1

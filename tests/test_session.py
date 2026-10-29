@@ -80,7 +80,7 @@ class SessionTests(unittest.TestCase):
     def test_switching_target_resets_adoption_but_not_throttling_or_session(self):
         first=self.service.apply('test-phone',{'latitude':1,'longitude':2})
         self.usb.event('connected');self.usb.event('subscribed',active=True);self.service.tick()
-        self.service.confirm_adoption(first['sessionId'])
+        self.service.confirm_adoption(first['sessionId'],first['controlRevision'])
         second=self.service.apply('test-phone',{'latitude':3,'longitude':4},first['sessionId'])
         self.assertEqual(first['sessionId'],second['sessionId'])
         self.assertEqual(second['adoption'],'unverified')
@@ -92,7 +92,34 @@ class SessionTests(unittest.TestCase):
         self.assertEqual(len(self.usb.frames),601)
         self.usb.event('subscribed',active=True);self.service.tick()
         self.assertEqual(len(self.usb.frames),602)
-        self.service.stop();self.service.confirm_recovery()
+        stopped=self.service.stop();self.service.confirm_recovery(stopped['controlRevision'])
+        self.assertEqual(self.service.status()['recovery'],'user-confirmed')
+    def test_adoption_confirmation_is_bound_to_the_reported_target_revision(self):
+        first=self.service.apply('test-phone',{'latitude':1,'longitude':2})
+        self.usb.event('connected');self.usb.event('subscribed',active=True);self.service.tick()
+        self.service.confirm_adoption(first['sessionId'],first['controlRevision'])
+        second=self.service.apply('test-phone',{'latitude':3,'longitude':4},first['sessionId'])
+        with self.assertRaises(ValueError):
+            self.service.confirm_adoption(first['sessionId'],first['controlRevision'])
+        with self.assertRaises(ValueError):
+            self.service.confirm_adoption(second['sessionId'],second['controlRevision'])
+        self.now=1;self.service.tick()
+        with self.assertRaises(ValueError):
+            self.service.confirm_adoption(first['sessionId'],first['controlRevision'])
+        self.assertEqual(self.service.status()['adoption'],'unverified')
+        self.service.confirm_adoption(second['sessionId'],second['controlRevision'])
+        self.assertEqual(self.service.status()['adoption'],'user-confirmed')
+    def test_recovery_confirmation_cannot_apply_to_a_later_stopped_session(self):
+        self.service.apply('test-phone',{'latitude':1,'longitude':2})
+        self.usb.event('connected');self.usb.event('subscribed',active=True);self.service.tick()
+        first=self.service.stop()
+        self.service.apply('test-phone',{'latitude':3,'longitude':4})
+        self.usb.event('connected');self.usb.event('subscribed',active=True);self.service.tick()
+        second=self.service.stop()
+        with self.assertRaises(ValueError):
+            self.service.confirm_recovery(first['controlRevision'])
+        self.assertEqual(self.service.status()['recovery'],'pending')
+        self.service.confirm_recovery(second['controlRevision'])
         self.assertEqual(self.service.status()['recovery'],'user-confirmed')
     def test_clock_gap_invalidates_active_session_instead_of_replaying(self):
         self.service.apply('test-phone',{'latitude':1,'longitude':2})

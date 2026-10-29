@@ -41,8 +41,8 @@ def dispatch(service, request, phone=None):
     if action=='stop': return service.stop(expected_session_id=request.get('sessionId'))
     if action=='sleep': return service.suspend()
     if action=='quit': return service.shutdown()
-    if action=='confirm-adoption': return service.confirm_adoption(request.get('sessionId'))
-    if action=='confirm-recovery': return service.confirm_recovery()
+    if action=='confirm-adoption': return service.confirm_adoption(request.get('sessionId'),request.get('controlRevision'))
+    if action=='confirm-recovery': return service.confirm_recovery(request.get('controlRevision'))
     raise ValueError('不支持的本机操作')
 
 
