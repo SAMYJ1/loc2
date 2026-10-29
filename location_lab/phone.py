@@ -12,6 +12,8 @@ import secrets
 import time
 from .favorites import FavoritesStore
 
+from .maps import public_settings, validate_map_point
+
 COOKIE = 'location_lab_control'
 WEB = Path(__file__).with_name('web')
 
@@ -27,7 +29,7 @@ def secret_hash(value):
 
 
 class PhoneControl:
-    def __init__(self, service, clock=time.time, state_dir=None):
+    def __init__(self, service, clock=time.time, state_dir=None, maps_config=None):
         self.service, self.clock = service, clock
         self.lock = service.lock
         self.challenge = None
@@ -39,6 +41,7 @@ class PhoneControl:
         self.origin = None
         self.favorites=FavoritesStore(self.state_dir/"favorites.json" if self.state_dir else None)
         self.storage_failed = False
+        self.maps_config = dict(maps_config) if isinstance(maps_config,dict) else {}
 
     def create_pairing(self):
         with self.lock:
@@ -126,6 +129,11 @@ class PhoneControl:
             status['availableDevices']=[grant['deviceId']] if grant['deviceId'] in status['availableDevices'] else []
             return dict(authorized=True,deviceId=grant['deviceId'],status=status)
 
+    def map_settings(self, token):
+        with self.lock:
+            self.authorize(token)
+            return public_settings(self.maps_config)
+
     def favorite_list(self,token):
         with self.lock:
             grant=self.authorize(token)
@@ -159,7 +167,9 @@ class PhoneControl:
             try:
                 if action=='apply':
                     point=body.get('point')
-                    if not isinstance(point,dict) or point.get('provider','manual')!='manual' or point.get('inputCRS','WGS84')!='WGS84':
+                    if isinstance(point,dict) and point.get('provider')=='apple-mapkit-js':
+                        point=validate_map_point(point,self.maps_config)
+                    elif not isinstance(point,dict) or point.get('provider','manual')!='manual' or point.get('inputCRS','WGS84')!='WGS84':
                         raise ValueError('请使用明确标注的 WGS84 手工坐标')
                     self.service.apply(grant['deviceId'],point,current['sessionId'])
                 elif action=='stop': self.service.stop(expected_session_id=current['sessionId'])
@@ -215,11 +225,14 @@ class PhoneHandler(BaseHTTPRequestHandler):
         except Exception: return None
     def _reply(self,status,body,content_type='application/json; charset=utf-8',cookie=None,clear_cookie=False):
         data=json.dumps(body,ensure_ascii=False,allow_nan=False).encode() if not isinstance(body,bytes) else body
+        nonce=secrets.token_urlsafe(24)
+        if content_type.startswith('text/html'):
+            data=data.replace(b'{{MAPKIT_NONCE}}',nonce.encode())
         self.send_response(status)
         self.send_header('Content-Type',content_type);self.send_header('Content-Length',str(len(data)))
         self.send_header('Cache-Control','no-store');self.send_header('X-Content-Type-Options','nosniff')
         self.send_header('Referrer-Policy','no-referrer')
-        self.send_header('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
+        self.send_header('Content-Security-Policy',f"default-src 'self'; script-src 'self' https://cdn.apple-mapkit.com 'nonce-{nonce}' 'wasm-unsafe-eval'; style-src 'self' 'nonce-{nonce}'; img-src 'self' data: https://*.apple-mapkit.com blob:; connect-src 'self' https://*.apple-mapkit.com blob:; worker-src https://*.apple-mapkit.com blob:; frame-src https://*.apple-mapkit.com; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
         if cookie: self.send_header('Set-Cookie',f'{COOKIE}={cookie}; HttpOnly; SameSite=Strict; Path=/; Max-Age=31536000')
         elif clear_cookie: self.send_header('Set-Cookie',f'{COOKIE}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0')
         self.end_headers();self.wfile.write(data)
@@ -227,8 +240,9 @@ class PhoneHandler(BaseHTTPRequestHandler):
         try:
             self._headers()
             if self.path=='/api/status': return self._reply(200,self.server.control.status(self._cookie()))
+            if self.path=='/api/maps-config': return self._reply(200,self.server.control.map_settings(self._cookie()))
             if self.path=='/api/favorites': return self._reply(200,self.server.control.favorite_list(self._cookie()))
-            static={'/':('index.html','text/html; charset=utf-8'),'/app.js':('app.js','text/javascript; charset=utf-8'),'/style.css':('style.css','text/css; charset=utf-8'),'/favorites.js':('favorites.js','text/javascript; charset=utf-8'),'/favorites.css':('favorites.css','text/css; charset=utf-8')}
+            static={'/':('index.html','text/html; charset=utf-8'),'/app.js':('app.js','text/javascript; charset=utf-8'),'/maps.js':('maps.js','text/javascript; charset=utf-8'),'/maps.css':('maps.css','text/css; charset=utf-8'),'/favorites.js':('favorites.js','text/javascript; charset=utf-8'),'/favorites.css':('favorites.css','text/css; charset=utf-8'),'/style.css':('style.css','text/css; charset=utf-8')}
             if self.path not in static: raise RequestError('页面不存在',404)
             name,mime=static[self.path];self._reply(200,(WEB/name).read_bytes(),mime)
         except RequestError as error: self._reply(error.status,dict(error=str(error)),clear_cookie=error.status==401)
