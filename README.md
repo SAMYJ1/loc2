@@ -31,6 +31,7 @@
 - [2026-10-29 USB 真机验证结果](docs/device-validation-2026-10-29.md)
 - [2026-10-30 原控制器开启状态复测](docs/device-validation-2026-10-30.md)
 - [2026-10-30 Location Lab 应用验收](docs/app-validation-2026-10-30.md)
+- [外部位置间歇采用的社区与官方证据调查](docs/research/community-location-adoption-2026-10-30.md)
 
 ## 构建与运行
 
