@@ -2,7 +2,7 @@
 
 个人使用的 USB iPhone 定位应用项目：手机网页选择目标位置，Mac 接收控制指令并通过 USB 配件链路提供位置。
 
-当前阶段：**附近固定点已在老链路和 Location Lab 应用可见模式下成功对照，完整应用验收仍未完成。** 当前开发者模式开启；赛银国际广场附近点已采用并恢复，但此前远距离目标结果不稳定，隐藏模式、关闭状态和长期运行仍待验证，不能推定全部场景可用。
+当前阶段：**附近固定点已在老链路及 Location Lab 应用可见、隐藏模式下成功采用并恢复，完整应用验收仍未完成。** 当前验证条件为开发者模式开启；此前远距离目标结果不稳定，关闭状态、锁屏和长期运行仍待验证，不能推定全部场景可用。
 
 规格见 [Issue #1](https://github.com/SAMYJ1/location-lab/issues/1)，最终现场验收跟踪于 [Issue #9](https://github.com/SAMYJ1/location-lab/issues/9)。用户已确定先按既有 USB 路径开发，开发结束后统一真机验证。
 
@@ -33,6 +33,7 @@
 - [2026-10-30 Location Lab 应用验收](docs/app-validation-2026-10-30.md)
 - [外部位置间歇采用的社区与官方证据调查](docs/research/community-location-adoption-2026-10-30.md)
 - [赛银国际广场：老链路与应用附近点成功对照](docs/saiyin-validation-2026-10-30.md)
+- [隐藏模式修复与附近点验收](docs/hidden-mode-validation-2026-10-30.md)
 
 ## 构建与运行
 

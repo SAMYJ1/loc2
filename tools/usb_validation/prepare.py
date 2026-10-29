@@ -7,10 +7,11 @@ import json
 from pathlib import Path
 
 RESOURCE_LINKS = ('driver', 'gstreamer', 'icons', 'runtime')
-ENGINE_LINKS = ('CpHelperSock.js', 'ProjectionEnums.js', 'constants.js', 'discovery.js',
+ENGINE_FILES = ('CpHelperSock.js', 'ProjectionEnums.js', 'constants.js', 'discovery.js',
                 'display.js', 'frameRateFallback.js', 'microphonePermission.js',
                 'networkConfig.js', 'phoneSelection.js', 'runtimeControls.js',
-                'storage.js', 'videoHealth.js', 'node_modules', 'protocol')
+                'storage.js', 'videoHealth.js')
+ENGINE_LINKS = ('node_modules',)
 
 
 def digest(data):
@@ -27,7 +28,7 @@ def prepare(source, output):
     for name in RESOURCE_LINKS:
         if not (source / name).is_dir():
             raise ValueError('missing required resource directory: ' + name)
-    for name in ENGINE_LINKS:
+    for name in ENGINE_FILES + ENGINE_LINKS + ('protocol',):
         if not (source / 'engine' / name).exists():
             raise ValueError('missing required engine dependency: ' + name)
     originals = {name: (source / 'engine' / name).read_text() for name in ('media.js', 'main.js')}
@@ -59,6 +60,16 @@ def prepare(source, output):
         entry = source / 'engine' / name
         if entry.exists():
             (engine / name).symlink_to(entry, target_is_directory=entry.is_dir())
+    # Node resolves symlinks to their real paths. Linking protocol/ or a top-level
+    # module back to the original engine makes ../media load a second instance,
+    # separating decoder state from the hidden engine's readiness callback.
+    copies = [source / 'engine' / name for name in ENGINE_FILES]
+    copies.extend((source / 'engine/protocol').rglob('*.js'))
+    for entry in copies:
+        target = engine / entry.relative_to(source / 'engine')
+        target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        target.write_bytes(entry.read_bytes())
+        target.chmod(0o600)
     patches, hashes = [], {}
     for name, data in modified.items():
         (engine / name).write_text(data)
@@ -68,7 +79,9 @@ def prepare(source, output):
     (output / 'hidden-video.patch').write_text(''.join(patches))
     manifest = {'mode': 'prepared-only', 'receiverStarted': False, 'positionAdoption': 'unverified',
                 'realLocationRecovery': 'unverified', 'sourceResources': str(source), 'hashes': hashes,
-                'note': 'Local dependency links are not a distributable bundle. Authentication and pairing data are not copied.'}
+                'engineModuleLayout': 'local-js-graph',
+                'copiedEngineModules': sorted(str(p.relative_to(source / 'engine')) for p in copies),
+                'note': 'Engine JS is copied to preserve module identity. Binary/package dependency links are local-only. Authentication and pairing data are not copied.'}
     (output / 'preparation.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
     return manifest
 

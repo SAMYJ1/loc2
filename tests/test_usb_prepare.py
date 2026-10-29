@@ -2,6 +2,7 @@
 import json
 from pathlib import Path
 import subprocess
+import shutil
 import sys
 import tempfile
 import unittest
@@ -58,6 +59,31 @@ function showVideoWindow(aspect) { exports.addon.macplayWindowHandle(aspect); }
         result = self.invoke()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse((self.dest / 'resources/engine/credentials.json').exists())
+
+    @unittest.skipUnless(shutil.which('node'), 'Node is required to verify the prepared module graph')
+    def test_protocol_and_top_level_events_reach_the_prepared_media_callback(self):
+        package = self.source / 'engine/node_modules/livi-gst-video'
+        package.mkdir()
+        (package / 'index.js').write_text('module.exports = {};')
+        (self.source / 'engine/protocol/probe.js').write_text(
+            "exports.notify = () => require('../media').onVideo?.();")
+        (self.source / 'engine/runtimeControls.js').write_text(
+            "exports.notify = () => require('./media').onVideo?.();")
+        (self.source / 'engine/protocol/private.json').write_text('private-test-data')
+        result = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        engine = self.dest / 'resources/engine'
+        observed = subprocess.run(['node', '-e', '''
+            const path = require('node:path');
+            const root = process.argv[1];
+            let signals = 0;
+            require(path.join(root, 'media.js')).onVideo = () => signals++;
+            require(path.join(root, 'protocol/probe.js')).notify();
+            require(path.join(root, 'runtimeControls.js')).notify();
+            if (signals !== 2) throw new Error('readiness signals did not reach prepared media: ' + signals);
+        ''', str(engine)], capture_output=True, text=True)
+        self.assertEqual(observed.returncode, 0, observed.stderr)
+        self.assertFalse((engine / 'protocol/private.json').exists())
 
 if __name__ == '__main__':
     unittest.main()

@@ -8,7 +8,7 @@
 python3 tools/usb_validation/prepare.py --resources /absolute/path/to/macplay-mvp/resources --output /absolute/path/to/new-private-run
 ```
 
-输出目录必须是全新目录，且位于本仓库及原资源目录之外。目录权限为 0700。工具仅写入两个修改后的 engine 文件、可审阅的 `hidden-video.patch` 和包含前后 SHA-256 的 `preparation.json`；必要二进制、媒体库和其余 engine 依赖通过白名单符号链接复用。原目录不修改。认证资料、设置及配对记录不复制。
+输出目录必须是全新目录，且位于本仓库及原资源目录之外。目录权限为 0700。工具写入两个修改后的 engine 文件、白名单顶层 JavaScript 与 protocol JavaScript 副本、可审阅的 `hidden-video.patch` 和包含前后 SHA-256 的 `preparation.json`；二进制、媒体库和 node_modules 通过白名单符号链接复用。原目录不修改。认证资料、设置及配对记录不复制，protocol 中的非 JavaScript 文件也不会被带入。
 
 该目录包含本机依赖链接，不能作为可分发包、提交到 Git 或整体上传。新数据目录最初为空。
 
@@ -16,6 +16,7 @@ python3 tools/usb_validation/prepare.py --resources /absolute/path/to/macplay-mv
 
 - 将媒体模块的首次帧显示、显式显示两处调用从 `macplayWindowHandle` 换为 `macplayPrepareVideoWindow`。
 - 保留同一个 native contentView 的创建、视频解码、帧统计、健康监测、恢复和销毁。
+- engine JavaScript 保持在同一份实际目录中。不能把 protocol 或顶层 JavaScript 软链接回原 engine：Node 会按真实路径解析相对依赖，导致协议层和主循环加载两份 media 模块，接收状态与就绪回调分离。
 - 修正主模块的 `showCarPlay` 信号及日志，避免隐藏模式仍声称窗口已显示。
 - 检查所有预期替换的数量。上游形状变化即拒绝准备，重新阅读上游后调整工具。
 - Receiver 启动接口仍是 `resources/runtime/MacPlayReceiver.app/Contents/MacOS/MacPlayReceiver resources/engine/main.js`，环境变量沿用原实验控制器。
@@ -39,7 +40,7 @@ node --check /absolute/path/to/new-private-run/resources/engine/media.js
 node --check /absolute/path/to/new-private-run/resources/engine/main.js
 ```
 
-CLI 测试通过临时假资源检查准备行为、原文件不变、认证/未知文件不进入输出，以及上游不匹配时拒绝生成。它们不模拟手机采用，也不加载 native addon。
+CLI 测试通过临时假资源检查准备行为、原文件不变、认证/未知文件不进入输出，以及上游不匹配时拒绝生成。Node 模块图回归从协议目录和顶层依赖触发事件，验证两者能到达准备目录的同一个 media 回调。它们不模拟手机采用，也不加载真实 native addon。
 
 2026-10-29：3 个 CLI 测试通过；实际本机资源 prepare 成功；两个生成 JS 通过语法检查。没有启动 Receiver 或 USB 报点。
 
@@ -49,6 +50,8 @@ CLI 测试通过临时假资源检查准备行为、原文件不变、认证/未
 | --- | --- | --- |
 | media.js | 5d897b6f5e117f1efae43dac4ea94a220136dea2c5c54df434db92d09e274f60 | 25d54868b42fa2fc9dc16b547e7f9cde9185df85545c506b8b2d4613d1a088e6 |
 | main.js | de89da3e24b53c863c82eb0a4c75484cb1c948c1f369b74bfff6d1c54bde7b87 | 9bfa940d05b4b612d440fcb76a0ceb984cf280b3c9d832d1522575052cb9f154 |
+
+2026-10-30：修复了相对模块经过符号链接回到原 engine 的问题，新增 CLI/Node 回归（修改前失败、修改后通过）。4 项准备工具测试和全量 43 项 Python 测试通过。修复后的无坐标诊断约 3.5 秒得到首帧与隐藏就绪信号；随后应用附近点隐藏模式的采用、无投屏窗口及恢复均获用户确认，见[隐藏模式验收](../../docs/hidden-mode-validation-2026-10-30.md)。旧准备目录不会被原地更新，需重新生成并明确切换本机配置。
 
 ## 最终真机验收记录
 
