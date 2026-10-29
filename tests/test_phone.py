@@ -43,7 +43,7 @@ class PhoneTests(unittest.TestCase):
         self.control.approve(pending['requestId'])
         code,result,cookie=self.request('/api/pair/poll',{'requestId':pending['requestId'],'pollSecret':'b'*64})
         self.assertEqual(result['state'],'approved')
-        self.assertIn('HttpOnly',cookie);self.assertIn('SameSite=Strict',cookie)
+        self.assertIn('HttpOnly',cookie);self.assertIn('SameSite=Strict',cookie);self.assertIn('Max-Age=31536000',cookie)
         self.cookie=cookie.split(';',1)[0]
         self.assertEqual(self.request('/api/status')[0],200)
         self.assertFalse(self.usb.running)
@@ -116,3 +116,12 @@ class PhoneTests(unittest.TestCase):
         self.pair()
         self.assertEqual(self.request('/api/apply',self.command(expectedEpoch='previous-host'))[0],409)
         self.assertFalse(self.usb.running)
+
+    def test_revoked_cookie_is_cleared_and_browser_cannot_revoke_grants(self):
+        self.pair()
+        self.assertEqual(self.request('/api/pair/revoke',{})[0],404)
+        grant_id=self.control.local_status()['grants'][0]['grantId']
+        self.control.revoke(grant_id)
+        code,value,cookie=self.request('/api/status')
+        self.assertEqual(code,401);self.assertIn('Max-Age=0',cookie)
+        self.assertEqual(self.request('/api/apply',self.command())[0],401)

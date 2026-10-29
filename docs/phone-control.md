@@ -21,7 +21,7 @@
 
 Mac 应用需运行，手机与 Mac 需同网且该地址可达。Mac 关闭后，手机控制页无法访问；本版不承诺离线页面或公网访问。缺少配置时 Mac 本地功能仍可使用，配对窗口会显示提示。
 
-本步骤不复制 USB 认证资料或私钥，也不改变运行时身份准备方式。地图 token 与持久授权由后续任务接入。
+本步骤不复制 USB 认证资料或私钥，也不改变运行时身份准备方式。地图 token 由地图接入配置提供。
 
 ## 首次使用
 
@@ -32,7 +32,17 @@ Mac 应用需运行，手机与 Mac 需同网且该地址可达。Mac 关闭后�
 5. 手机准备 WGS84 草稿，点击“应用位置”。未接线时仍能编辑草稿，但不能应用。
 6. 手机或 Mac 都可停止报点。停止后单独检查真实位置恢复；页面不将报点计数当作位置采用。
 
-二维码短时有效且只能发起一次请求。失败或过期时在 Mac 生成新二维码。浏览器获得 HttpOnly、SameSite=Strict 的控制 Cookie；本任务的授权仅保存在运行进程中，关闭 Mac 应用后需要重新配对。持续保存与撤销属于后续授权任务。
+二维码短时有效且只能发起一次请求。失败或过期时在 Mac 生成新二维码。浏览器获得 HttpOnly、SameSite=Strict、最长保存一年的控制 Cookie；Mac 保存对应凭据哈希与目标绑定，重新打开应用后授权仍有效，但目标位置和定位会话不会恢复。浏览器清除网站数据、Cookie 到期或 Mac 撤销后需要重新配对。Safari 与主屏幕入口是否共享该 Cookie 仍需真机验证，必要时分别配对。
+
+## 持久授权与撤销
+
+默认授权文件是本机配置同目录下的 `grants.json`（通常为 `~/.config/location-lab/grants.json`）。可在顶层配置 `stateDirectory` 指定另一个绝对路径；授权与收藏使用各自独立文件。
+
+授权目录应为当前用户所有且权限 0700，授权文件为 0600。写入通过私有临时文件、fsync 和原子替换完成。文件仅保存高熵随机凭据的 SHA-256 哈希、不可用于登录的授权标识、绑定设备、控制端声明名称和创建时间；不保存原始 Cookie、请求队列、会话、目标、epoch 或 revision。
+
+Mac 配对窗口列出已授权控制端，可点击“撤销所选控制端授权”。撤销后该 Cookie 的下一次请求被拒绝并清除，手机重新显示配对入口；已有定位会话仍由 Mac 管理，撤销授权与停止报点是独立操作。管理授权只通过本机 IPC `pairing-status` / `pairing-revoke`，没有 HTTP 管理路由。
+
+损坏、超限、符号链接或权限不安全的授权文件会使手机服务停用，原文件保持不变，本机停止入口仍可用。先在 Mac 修复文件权限或备份并移除损坏文件后重新配对。若撤销写盘失败，当前进程立即拒绝全部手机控制并报告未能保存；修复授权文件前不要依赖重启保持该次失败的撤销结果。
 
 ## 请求契约
 
@@ -50,7 +60,7 @@ Mac 应用需运行，手机与 Mac 需同网且该地址可达。Mac 关闭后�
 
 ## 后续扩展接口
 
-Python `PhoneControl(service)` 持有共享 `SessionService`；HTTP 层始终通过此控制边界执行操作。授权任务扩展 grant 的持久化与撤销，收藏任务在授权后按绑定设备存储收藏，地图任务在本机校准策略成立后扩展坐标提供方校验。
+Python `PhoneControl(service)` 持有共享 `SessionService`；HTTP 层始终通过此控制边界执行操作。`state_dir` 指定私有持久化目录。授权与收藏按绑定设备隔离，地图只在本机校准策略成立后扩展坐标提供方校验。
 
 页面提供 `window.locationLab` 的 `setDraft(point)`、`getDraft()`、`getState()` 和 `request(path, body)`，并派发 `locationlab:draft`、`locationlab:status`。`selection-tools` 是新增选点入口的容器。任何入口只改变草稿，明确点击应用才改变会话。
 
@@ -59,9 +69,12 @@ Python `PhoneControl(service)` 持有共享 `SessionService`；HTTP 层始终通
 ```sh
 python3 -m unittest discover -s tests
 PLAYWRIGHT_MODULE=/absolute/path/to/playwright/index.mjs node tests/browser/phone-control.mjs
+PLAYWRIGHT_MODULE=/absolute/path/to/playwright/index.mjs node tests/browser/persistent-authorization.mjs
 sh scripts/build-mac-app.sh
 ```
 
 浏览器测试自动启动仅含合成 USB 后端的 loopback fixture，通过同一 private dispatch 完成 Mac 批准。覆盖授权前拒绝、一次性二维码、Cookie、未接线草稿、重连明确应用、草稿隔离和停止；HTTP 测试还覆盖错误目标、旧 revision、过期与重放请求、Host/Origin 拒绝和其他手机会话隔离。
 
 这些检查不启动真实 USB。手机 Safari、主屏幕入口、二维码扫描、局域网网络条件与持续 USB 会话仍归最终真机验收。
+
+持久授权浏览器检查覆盖保存 Cookie、关闭浏览器页面、离线控制连接、独立服务进程重启后授权保留但会话不恢复、本机撤销及重新配对。该检查使用 Chromium 和合成后端，不替代 Safari／主屏幕真机验收。
