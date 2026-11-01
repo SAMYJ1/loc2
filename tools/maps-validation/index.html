@@ -1,0 +1,8 @@
+<!doctype html>
+<html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Location Lab 地图验证</title>
+<link rel="stylesheet" href="style.css">
+<main><h1>地图与坐标验证</h1><p>独立验证工具：只准备选点草稿和导出观察记录，不连接 USB，不应用位置。</p>
+<section><h2>手工 WGS84</h2><form id="manual"><label>WGS84 纬度<input id="latitude" type="number" step="any" required min="-90" max="90"></label><label>WGS84 经度<input id="longitude" type="number" step="any" required min="-180" max="180"></label><button>记录手工坐标</button></form></section>
+<section><h2>Apple 地图</h2><label>页面 Maps token<input id="token" type="password" autocomplete="off" spellcheck="false"></label><p>只在当前页面内存使用页面令牌；不要输入签名私钥。刷新页面会清除令牌。</p><button id="load">加载 Apple 地图</button><p id="map-status" role="status">未加载：可先验证手工坐标。</p><div id="map" aria-label="Apple 地图"></div><form id="search"><label>搜索地点<input id="query" required></label><button id="search-button" disabled>搜索</button></form><ul id="results"></ul><button id="confirm-map" disabled>记录：我已看到地图底图</button></section>
+<section><h2>校准记录</h2><p>搜索和点选坐标的参考系保持待验证，不自动当作 WGS84。选择一个地图点后，填写同一已知点的独立 WGS84 参照。</p><form id="reference"><label>参照纬度<input id="reference-latitude" type="number" step="any" min="-90" max="90" required></label><label>参照经度<input id="reference-longitude" type="number" step="any" min="-180" max="180" required></label><label>参照来源<input id="reference-source" required maxlength="500"></label><button>为最新地图点记录参照</button></form><p id="message" role="status"></p></section>
+<section><h2>观察记录</h2><p>导出含你记录的地点、坐标、浏览器及访问原点；不含 Maps token。核对后再分享。</p><button id="export">导出 JSON</button><pre id="report"></pre></section></main><script src="app.js" defer></script></html>

@@ -1,0 +1,29 @@
+{
+  "date": "2026-11-02",
+  "ios": "27.0",
+  "build": "24A435",
+  "method": "Offline pairing of saved integrity and screen log entries. No new device run. Calculate M - 15 * abs(timeDiff) - hunc from printed values.",
+  "groups": [
+    {
+      "name": "xiaoshan-23km",
+      "records": 87,
+      "residualRangeMeters": [
+        4999.93,
+        5000.08
+      ],
+      "speedTermBelowFinalBoundCount": 87,
+      "effectiveBoundMeters": 15000
+    },
+    {
+      "name": "hongqiao-156km",
+      "records": 54,
+      "residualRangeMeters": [
+        4999.93,
+        5000.07
+      ],
+      "speedTermBelowFinalBoundCount": 54,
+      "effectiveBoundMeters": 15000
+    }
+  ],
+  "interpretation": "Consistent with extra approximately5000m and a lower-bound branch in published iOS26.1 pseudocode, not proof of identical full implementation or universal threshold."
+}

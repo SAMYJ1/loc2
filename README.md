@@ -1,10 +1,12 @@
-# Location Lab
+# toAnywhere
 
-个人使用的 USB iPhone 定位应用项目：手机网页选择目标位置，Mac 接收控制指令并通过 USB 配件链路提供位置。
+个人使用的 iPhone 原生地图控制 App 与 Mac 后台定位服务。支持 USB 与无线控制／报点，连接 USB 时优先使用 USB。
 
-当前阶段：**方案已确认，尚未开始应用实现。** 已有 USB 短时固定点行为验证，新应用的完整流程仍需开发和验收。
+当前阶段：**USB 优先双通道已安装并通过短流程：手机关闭 Wi-Fi 后可经 USB 应用与恢复；拔线后无线控制、应用与恢复正常，不自动重放旧目标。长时间及更多异常场景仍待验收。** 详见[当前验收状态](docs/native-app-validation-2026-10-31.md)。
 
-## 已确定的体验
+规格见 [Issue #1](https://github.com/SAMYJ1/toAnywhere/issues/1)，最终现场验收跟踪于 [Issue #9](https://github.com/SAMYJ1/toAnywhere/issues/9)。用户已确定先按既有 USB 路径开发，开发结束后统一真机验证。
+
+## 早期方案记录
 
 - 手机 Safari／主屏幕入口，Apple 地图搜索和点选、WGS84 坐标输入、常用点收藏。
 - 手机与 Mac 在同一局域网传递控制指令，位置数据由 Mac 经 USB 提供。
@@ -19,5 +21,39 @@
 - [领域术语](GLOSSARY.md)
 - [架构决策：手机控制与 USB 会话分开](docs/adr/0001-separate-phone-control-from-usb-session.md)
 - [USB 实测基线与限制](docs/validation-baseline.md)
+- [Mac 应用构建与本机配置](docs/mac-app.md)
+- [手机配对、持久授权与撤销](docs/phone-control.md)
+- [常用点收藏](docs/favorites.md)
+- [Apple 地图选点与校准策略](docs/apple-map-selection.md)
+- [USB 隐藏画面准备工具](tools/usb_validation/README.md)
+- [地图验证工具](docs/map-validation.md)
+- [最终真机验收清单](docs/acceptance.md)
+- [2026-10-29 USB 真机验证结果](docs/device-validation-2026-10-29.md)
+- [2026-10-30 原控制器开启状态复测](docs/device-validation-2026-10-30.md)
+- [2026-10-30 Location Lab 应用验收](docs/app-validation-2026-10-30.md)
+- [外部位置间歇采用的社区与官方证据调查](docs/research/community-location-adoption-2026-10-30.md)
+- [赛银国际广场：老链路与应用附近点成功对照](docs/saiyin-validation-2026-10-30.md)
+- [隐藏模式修复与附近点验收](docs/hidden-mode-validation-2026-10-30.md)
+- [无 USB：Wi-Fi＋蓝牙与纯蓝牙验证](docs/wireless-validation-2026-10-30.md)
 
-下一步先验证隐藏 CarPlay 画面后的稳定性、Apple 地图在实际局域网入口的可用性及坐标校准，再推进 Mac 应用与手机控制页面。
+## 构建与运行
+
+```sh
+python3 -m unittest discover -s tests -v
+sh scripts/build-mac-app.sh
+open 'build/toAnywhere.app'
+```
+
+应用默认不启动定位会话。按本机配置说明提供隔离运行时与局域网地址后，手机才能通过二维码请求授权；只有明确应用位置才会启动 USB 会话。
+
+应用不包含第三方运行时或认证资料；本机配置和现场验收步骤见各工具说明。地图令牌、实际局域网入口、隐藏画面后的稳定性及坐标校准仍待验证。
+
+
+## 原生 App 迭代
+
+2026-10-30 用户确认原生 iPhone App＋Mac 后台无线方向。2026-11-02 扩展为 USB 优先的双通道，手机控制与位置报点均支持 USB，沿用已有配对。关闭 Wi-Fi 的 USB 短流程及拔线后的无线短流程已通过；两小时验收尚未完成。
+
+- [已确认需求](docs/native-app-design-interview.md)
+- [当前实现与验收状态](docs/native-app-validation-2026-10-31.md)
+- [双轴代码审查](docs/native-app-review-2026-10-31.md)
+- [无线运行时准备](tools/wireless_validation/README.md)
