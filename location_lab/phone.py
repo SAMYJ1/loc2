@@ -12,7 +12,7 @@ import secrets
 import time
 from .favorites import FavoritesStore
 
-from .maps import public_settings, validate_map_point
+from .maps import public_settings, validate_map_point, validate_native_point
 
 COOKIE = 'location_lab_control'
 WEB = Path(__file__).with_name('web')
@@ -47,7 +47,7 @@ class PhoneControl:
         with self.lock:
             snapshot=self.service.refresh_devices()
             if len(snapshot['availableDevices']) != 1:
-                raise ValueError('请连接且仅连接需要授权的一台 USB iPhone')
+                raise ValueError('请连接且仅连接需要授权的一台 iPhone')
             self.challenge=dict(challenge=secrets.token_urlsafe(32),deviceId=snapshot['availableDevices'][0],expires=self.clock()+120)
             return dict(self.challenge)
 
@@ -75,7 +75,7 @@ class PhoneControl:
             if not pending or pending['expires']<self.clock() or pending['state']!='pending':
                 raise ValueError('配对请求已失效')
             if self.service.refresh_devices()['availableDevices'] != [pending['deviceId']]:
-                raise ValueError('目标 USB 手机已变化，请重新配对')
+                raise ValueError('目标手机已变化，请重新配对')
             if self.storage_failed: raise ValueError('授权存储不可写，手机控制已停用；请修复本机存储后重新打开应用')
             if len(self.grants)>=MAX_GRANTS: raise ValueError('授权数量已满，请先撤销不用的控制端')
             token=secrets.token_urlsafe(32)
@@ -169,6 +169,8 @@ class PhoneControl:
                     point=body.get('point')
                     if isinstance(point,dict) and point.get('provider')=='apple-mapkit-js':
                         point=validate_map_point(point,self.maps_config)
+                    elif isinstance(point,dict) and point.get('provider')=='apple-mapkit-native':
+                        point=validate_native_point(point,self.maps_config.get('native',{}))
                     elif not isinstance(point,dict) or point.get('provider','manual')!='manual' or point.get('inputCRS','WGS84')!='WGS84':
                         raise ValueError('请使用明确标注的 WGS84 手工坐标')
                     self.service.apply(grant['deviceId'],point,current['sessionId'])

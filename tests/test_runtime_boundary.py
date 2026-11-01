@@ -9,6 +9,8 @@ from location_lab.session import SessionService
 
 RECEIVER = '''#!/usr/bin/python3
 import base64,json,os,socket,sys,threading
+settings=json.load(open(os.environ['MACPLAY_SETTINGS_PATH']))
+assert 'wireless' in settings
 sock=socket.socket(socket.AF_UNIX);sock.bind(os.environ['MACPLAY_TEST_SOCKET']);sock.listen()
 def requests():
  while True:
@@ -36,6 +38,38 @@ for line in sys.stdin:
 '''
 
 class RuntimeBoundaryTests(unittest.TestCase):
+    def test_wireless_handoff_diagnostics_survive_adapter_without_private_details(self):
+        lines = [
+            '[cp] CarPlayAvailability wired=None wireless=Some(CarPlayAvailabilityWirelessAttributes { available: Some(false), bluetooth_transport_identifier: Some("private-device") })',
+            '[cp] bluetooth: CarPlayStartSession sent',
+            '{"stage":"network-discovery","detail":"网络发现：IPv6多播警告/EINVAL private-secret"}',
+            '{"stage":"network-handoff-started","detail":"private-secret"}',
+            '{"stage":"handoff-summary","detail":{"discoverySockets":1,"discoveryResponses":12,"controlServices":0,"probeEndpoints":0,"probeAccepted":0,"secret":"private-secret"}}',
+        ]
+        import json
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            executable=root/'resources/runtime/MacPlayReceiver.app/Contents/MacOS/MacPlayReceiver'
+            executable.parent.mkdir(parents=True)
+            executable.write_text('#!/usr/bin/python3\nimport sys\n'+''.join(f'print({line!r},flush=True)\n' for line in lines)+'for line in sys.stdin:\n if line.strip()=="stop": break\n')
+            executable.chmod(0o700)
+            for name in ('resources/engine/main.js','data/authentication/identity.pk8','data/authentication/certificate.p7b','data/cp/macplay-v3/identity.json'):
+                path=root/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text('fixture')
+            backend=USBBackend(root,enumerate_devices=lambda:['fixture-phone'])
+            backend.lane='bluetooth'
+            service=SessionService(backend)
+            try:
+                service.apply('fixture-phone',{'latitude':1,'longitude':2})
+                result=self.await_status(service,lambda s:len(s['diagnosticEvents'])>=5,'wireless handoff diagnostic trace')
+                stages=[e['stage'] for e in result['diagnosticEvents']]
+                self.assertIn('carplay-wireless-unavailable',stages)
+                self.assertIn('network-handoff-started',stages)
+                self.assertIn('discovery-ipv6-warning-EINVAL',stages)
+                self.assertIn('discovery-summary:sockets=1,responses=12,services=0,endpoints=0,accepted=0',stages)
+                self.assertNotIn('private-',json.dumps(result))
+                self.assertEqual(result['helperAcceptedBatches'],0)
+            finally:service.shutdown()
+
     def await_status(self, service, predicate, description):
         # Readiness comes from the external receiver's actual subscription events.
         # Keep wall-clock scheduling out of the service throttle/clock-gap tests.
@@ -53,11 +87,18 @@ class RuntimeBoundaryTests(unittest.TestCase):
     def test_hidden_video_ready_signal_also_releases_location_supply(self):
         self.exercise_receiver({'showCarPlay':False,'hiddenVideoValidation':True})
 
-    def exercise_receiver(self, ready_event):
+    def test_authentication_socket_survives_long_install_path(self):
+        self.exercise_receiver({'showCarPlay':False,'hiddenVideoValidation':True},long_data=True)
+
+    def exercise_receiver(self, ready_event, long_data=False):
         with tempfile.TemporaryDirectory() as directory:
-            root=Path(directory)
+            root=Path(directory)/("installed-runtime-"+"x"*100) if long_data else Path(directory)
             executable=root/'resources/runtime/MacPlayReceiver.app/Contents/MacOS/MacPlayReceiver'
-            executable.parent.mkdir(parents=True);executable.write_text(RECEIVER.replace("{'showCarPlay':True}",repr(ready_event)));executable.chmod(0o700)
+            executable.parent.mkdir(parents=True)
+            source=RECEIVER.replace("{'showCarPlay':True}",repr(ready_event))
+            if long_data:
+                source=source.replace("sock=socket.socket", "bluetooth=socket.socket(socket.AF_UNIX);bluetooth.bind(os.path.join(os.environ['MACPLAY_DATA'],'authentication','bluetooth.sock'))\nsock=socket.socket",1)
+            executable.write_text(source);executable.chmod(0o700)
             for name in ('resources/engine/main.js','data/authentication/identity.pk8',
                          'data/authentication/certificate.p7b','data/cp/macplay-v3/identity.json'):
                 path=root/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text('test fixture only')
@@ -72,5 +113,6 @@ class RuntimeBoundaryTests(unittest.TestCase):
                 started=time.monotonic();service.stop()
                 self.assertLess(time.monotonic()-started,2)
                 self.assertIsNone(service.status()['sessionId'])
+                self.assertEqual((root/'data/authentication/identity.pk8').read_text(),'test fixture only')
                 self.assertEqual(service.status()['recovery'],'pending')
             finally: service.shutdown()

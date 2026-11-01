@@ -31,3 +31,25 @@ def validate_map_point(point,config):
             if not isinstance(coordinates,dict) or isinstance(coordinates.get(key),bool) or coordinates.get(key)!=value:
                 raise ValueError('地图输入、归一化坐标和目标不一致')
     return copy.deepcopy(point)
+
+
+def validate_native_point(point,config):
+    """Keep native map input distinct from the WGS84 execution target."""
+    from .coordinates import gcj2wgs_exact
+    if config.get('coordinatePolicy') != 'validated-native' or not config.get('validationEvidence'):
+        raise ValueError('原生地图坐标尚未校准，请使用WGS84输入')
+    if point.get('selectionMethod') not in ('search','map-tap'):
+        raise ValueError('原生地图来源无效')
+    source=point.get('inputCoordinate');normalized=point.get('normalizedWGS84')
+    if not isinstance(source,dict) or not isinstance(normalized,dict): raise ValueError('缺少坐标来源')
+    for coordinate in (source,normalized,point):
+        for field,limit in [('latitude',90),('longitude',180)]:
+            n=coordinate.get(field)
+            if type(n) not in (int,float) or not math.isfinite(n) or abs(n)>limit: raise ValueError('坐标无效')
+    crs=point.get('inputCRS')
+    if crs=='GCJ-02' and point.get('countryCode')=='CN': expected=gcj2wgs_exact(source['latitude'],source['longitude'])
+    elif crs=='WGS84' and point.get('countryCode')!='CN': expected=(source['latitude'],source['longitude'])
+    else: raise ValueError('原生地图参考系未明确')
+    for index,key in enumerate(('latitude','longitude')):
+        if abs(normalized[key]-expected[index])>0.000002 or normalized[key]!=point[key]: raise ValueError('地图归一化结果不一致')
+    return copy.deepcopy(point)

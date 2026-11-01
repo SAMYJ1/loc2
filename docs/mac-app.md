@@ -9,7 +9,7 @@
 ```sh
 python3 -m unittest discover -s tests -v
 sh scripts/build-mac-app.sh
-open 'build/Location Lab.app'
+open 'build/toAnywhere.app'
 ```
 
 构建生成本地 ad-hoc 签名应用，显式以当前架构的 macOS 13.0 为部署目标，并核对二进制最低版本与应用声明一致，避免新 SDK 默认目标高于当前系统而无法启动。重复构建会刷新打包的 Python 模块，不保留已删除的旧模块。默认使用 `/usr/bin/python3`；通过环境变量 `LOCATION_LAB_PYTHON` 可指定其他 Python 3 的绝对路径。构建不启动 USB；打开应用只枚举连接设备，明确点击“应用位置”才启动会话。
@@ -49,3 +49,15 @@ open 'build/Location Lab.app'
 `location_lab.session.SessionService` 是 Mac 与后续已授权手机操作共享的测试边界。`apply`、`status`、`stop`、`refresh_devices`、`tick`、`suspend`、`shutdown` 和用户观察确认提供外部行为；后端注入只用于系统边界。
 
 原生应用以私有 stdin/stdout JSONL 管道启动 `python3 -m location_lab.local_host`。可用 `--runtime` 指定准备目录，或 `--config` 指定本机配置。管道关闭、SIGTERM 或退出操作会结束 USB 会话。该管道不对局域网暴露，也不替代后续手机配对授权。
+
+## USB 优先双通道（2026-11-02）
+
+当前原生版本在插入绑定的 iPhone 时优先通过 USB 控制与报点，手机关闭 Wi-Fi 后仍可应用和恢复。未接 USB 时使用原局域网控制及无线报点。界面分别显示实际连接方式；USB 与无线沿用原配对授权、收藏和系统钥匙串中的网络授权。
+
+本机配置使用 `transport: "auto"` 和已绑定手机的 `targetUSB`，保留原 `wireless` 配置及 `runtime`；若 USB 需使用独立运行时，可设置 `usbRuntime`。真实设备标识、证书和凭据只存本机私有配置，不提交入库。USB 只连接配置对应的实体 USB 设备，不使用同标识的网络枚举记录代替。
+
+手机前台运行时，USB 控制入口仅监听回环地址；Mac 通过 usbmux 接入并转发到本机回环 HTTPS 服务。客户端保持原 Mac 指纹、主机名及配对令牌校验。初始配对邀请仍使用稳定的 Mac 主机名／端口；USB 转发只替换连接地址。已有授权的短流程已验证，新的首次 USB 配对未单独验收。
+
+插拔导致报点通道变化时，当前会话结束，需重新明确应用；不会同时报点，也不会在失败后静默重放目标。手机退后台不停止 Mac 的会话，回到前台后恢复控制连接并读取实际状态。
+
+离线检查包括 Python 通道与授权回归，以及 `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer python3 tests/run-usb-control.py` 的真实 Swift／TLS 端到端测试：使用不可达的局域网地址、复用不包含回环 IP 的 Mac 证书，经 USB 转发完成状态／应用／停止，并拒绝错误指纹、错误主机名、错误令牌和重复命令。该测试使用模拟 USB 流和假位置后端，不会连接或报点到真实手机。

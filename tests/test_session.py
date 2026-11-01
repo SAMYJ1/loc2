@@ -171,3 +171,15 @@ class SessionTests(unittest.TestCase):
         self.now=2;self.service.tick()
         self.assertEqual(len(self.usb.frames),1)
         self.assertFalse(self.service.status()['videoReady'])
+
+
+class ScopedStopTests(unittest.TestCase):
+    def test_old_local_stop_does_not_cancel_replaced_target(self):
+        backend=USBFixture();service=SessionService(backend,monotonic=lambda:0)
+        old=service.apply('test-phone',dict(latitude=1,longitude=2))
+        pending=[{k:old[k] for k in ('sessionId','controlEpoch','controlRevision')}]
+        backend.take_stop_request=lambda:pending.pop(0) if pending else None
+        service.apply('test-phone',dict(latitude=3,longitude=4));service.tick()
+        self.assertIsNotNone(service.status()['sessionId'])
+        current=service.status();pending.append({k:current[k] for k in ('sessionId','controlEpoch','controlRevision')})
+        service.tick();self.assertIsNone(service.status()['sessionId'])
