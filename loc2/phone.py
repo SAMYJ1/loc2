@@ -29,8 +29,9 @@ def secret_hash(value):
 
 
 class PhoneControl:
-    def __init__(self, service, clock=time.time, state_dir=None, maps_config=None):
+    def __init__(self, service, clock=time.time, state_dir=None, maps_config=None, native_pairing=False):
         self.service, self.clock = service, clock
+        self.native_pairing = native_pairing
         self.lock = service.lock
         self.challenge = None
         self.pending = {}
@@ -46,9 +47,16 @@ class PhoneControl:
     def create_pairing(self):
         with self.lock:
             snapshot=self.service.refresh_devices()
-            if len(snapshot['availableDevices']) != 1:
+            configured=getattr(self.service.backend,'device_id',None) if self.native_pairing else None
+            if configured:
+                device_id=configured
+            elif len(snapshot['availableDevices']) == 1:
+                device_id=snapshot['availableDevices'][0]
+            elif self.native_pairing and not snapshot['availableDevices']:
+                device_id=None
+            else:
                 raise ValueError('请连接且仅连接需要授权的一台 iPhone')
-            self.challenge=dict(challenge=secrets.token_urlsafe(32),deviceId=snapshot['availableDevices'][0],expires=self.clock()+120)
+            self.challenge=dict(challenge=secrets.token_urlsafe(32),deviceId=device_id,expires=self.clock()+120)
             return dict(self.challenge)
 
     def request_pairing(self, body):
@@ -74,7 +82,14 @@ class PhoneControl:
             pending=self.pending.get(request_id)
             if not pending or pending['expires']<self.clock() or pending['state']!='pending':
                 raise ValueError('配对请求已失效')
-            if self.service.refresh_devices()['availableDevices'] != [pending['deviceId']]:
+            device_id=pending['deviceId']
+            configured=getattr(self.service.backend,'device_id',None) if self.native_pairing else None
+            if device_id is None:
+                if not self.native_pairing: raise ValueError('请重新生成配对二维码')
+                # A controller-only grant never adopts a device plugged in later.
+            elif configured is not None:
+                if configured != device_id: raise ValueError('目标手机已变化，请重新配对')
+            elif self.service.refresh_devices()['availableDevices'] != [device_id]:
                 raise ValueError('目标手机已变化，请重新配对')
             if self.storage_failed: raise ValueError('授权存储不可写，手机控制已停用；请修复本机存储后重新打开应用')
             if len(self.grants)>=MAX_GRANTS: raise ValueError('授权数量已满，请先撤销不用的控制端')
@@ -127,7 +142,9 @@ class PhoneControl:
                 status.update(deviceId=None,target=None,helperAcceptedBatches=0,queuedMessages=0,adoption='unverified',recovery='not-required',error=None)
             # Only the bound device is disclosed to this controller.
             status['availableDevices']=[grant['deviceId']] if grant['deviceId'] in status['availableDevices'] else []
-            return dict(authorized=True,deviceId=grant['deviceId'],status=status)
+            if grant['deviceId'] is None:
+                status['connectionHint']='已配对；请在 Mac 配置报点目标后重新扫码授权，无需 USB'
+            return dict(authorized=True,deviceId=grant['deviceId'],targetBound=grant['deviceId'] is not None,status=status)
 
     def map_settings(self, token):
         with self.lock:
@@ -137,11 +154,13 @@ class PhoneControl:
     def favorite_list(self,token):
         with self.lock:
             grant=self.authorize(token)
-            return dict(favorites=self.favorites.list(grant['deviceId']))
+            return dict(favorites=self.favorites.list(grant['deviceId']) if grant['deviceId'] is not None else [])
 
     def command(self, token, action, body):
         with self.lock:
             grant=self.authorize(token)
+            if grant['deviceId'] is None:
+                raise RequestError('已配对但尚未授权报点目标；请在 Mac 配置目标后重新扫码授权',403)
             if body.get('deviceId')!=grant['deviceId']:
                 raise RequestError('此控制端未获准操作该手机',403)
             request_id=body.get('requestId')

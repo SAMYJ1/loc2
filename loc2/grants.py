@@ -29,6 +29,8 @@ def _validate(value):
             raise ValueError('授权标识无效')
         identifiers.add(grant['grantId'])
         for field,limit in [('deviceId',256),('label',80)]:
+            # None is a paired controller with no permission to operate a target.
+            if field=='deviceId' and grant[field] is None: continue
             if not isinstance(grant[field],str) or not 1<=len(grant[field])<=limit or any(ord(c)<32 for c in grant[field]):
                 raise ValueError('授权目标或名称无效')
         when=grant['createdAt']

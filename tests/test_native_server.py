@@ -89,3 +89,66 @@ class NativeControlTests(unittest.TestCase):
             self.assertEqual(self.request('/v1/status')[0],401)
             self.assertLess(time.monotonic()-started,1.5)
         finally:idle.close()
+
+    def test_cable_free_pairing_persists_without_granting_any_target(self):
+        self.control.native_pairing=True
+        self.backend.devices=[]
+        self.pair()
+        code,value=self.request('/v1/status')
+        self.assertEqual(code,200)
+        self.assertFalse(value['targetBound'])
+        self.assertIsNone(value['deviceId'])
+        self.assertEqual(value['status']['availableDevices'],[])
+        self.assertIn('已配对',value['status']['connectionHint'])
+        self.backend.devices=['another-phone']
+        self.service.refresh_devices()
+        self.assertEqual(self.request('/v1/status')[1]['status']['availableDevices'],[])
+        for device_id in (None,'another-phone'):
+            body=self.command(dict(latitude=1,longitude=2));body['deviceId']=device_id
+            self.assertEqual(self.request('/v1/apply',body)[0],403)
+            self.assertEqual(self.request('/v1/stop',body)[0],403)
+        self.assertFalse(self.backend.running)
+        reloaded=PhoneControl(self.service,state_dir=Path(self.folder.name),native_pairing=True)
+        self.assertFalse(reloaded.status(self.token)['targetBound'])
+        self.assertEqual(reloaded.favorite_list(self.token),{'favorites':[]})
+        self.server.control=reloaded
+        reloaded.revoke(next(iter(reloaded.grants.values()))['grantId'])
+        self.assertEqual(self.request('/v1/status')[0],401)
+
+    def test_wireless_target_can_be_authorized_while_offline(self):
+        self.control.native_pairing=True
+        self.backend.device_id='wireless-configured-target'
+        self.backend.devices=[]
+        self.pair()
+        code,value=self.request('/v1/status')
+        self.assertEqual(code,200)
+        self.assertTrue(value['targetBound'])
+        self.assertEqual(value['deviceId'],'wireless-configured-target')
+        self.assertEqual(value['status']['availableDevices'],[])
+        self.backend.devices=['wireless-configured-target']
+        self.service.refresh_devices()
+        body=self.command(dict(latitude=1,longitude=2));body['deviceId']='wireless-configured-target'
+        self.assertEqual(self.request('/v1/apply',body)[0],200)
+        self.assertTrue(self.backend.running)
+
+    def test_wireless_target_change_during_approval_is_rejected(self):
+        self.control.native_pairing=True
+        self.backend.devices=[]
+        self.backend.device_id='wireless-original-target'
+        challenge=self.control.create_pairing()['challenge']
+        code,pending=self.request('/v1/pair/request',dict(challenge=challenge,pollSecret='a'*64,label='iPhone'))
+        self.assertEqual(code,200)
+        self.backend.device_id='wireless-replacement-target'
+        with self.assertRaisesRegex(ValueError,'目标手机已变化'):
+            self.control.approve(pending['requestId'])
+        self.assertFalse(self.control.grants)
+
+    def test_unbound_invitation_does_not_adopt_newly_connected_device(self):
+        self.control.native_pairing=True
+        self.backend.devices=[]
+        challenge=self.control.create_pairing()['challenge']
+        self.backend.devices=['another-phone']
+        code,pending=self.request('/v1/pair/request',dict(challenge=challenge,pollSecret='a'*64,label='iPhone'))
+        self.assertEqual(code,200)
+        self.control.approve(pending['requestId'])
+        self.assertIsNone(next(iter(self.control.grants.values()))['deviceId'])

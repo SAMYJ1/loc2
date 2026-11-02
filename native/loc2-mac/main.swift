@@ -255,7 +255,7 @@ final class LocationApp: NSObject, NSApplicationDelegate {
     }
 
     private func renderPhone() {
-        phoneText.stringValue = phone["error"] as? String ?? "扫码后需在此确认。控制端名称由客户端声明，不是设备身份证明。"
+        phoneText.stringValue = phone["error"] as? String ?? "同一局域网扫码，无需 USB；扫码后需在此确认。控制端名称不是设备身份证明。"
         if phone["usbControlConnected"] as? Bool == true { phoneText.stringValue += "\nUSB 手机控制已连接" }
         if let device = phone["pairingDevice"] as? String { phoneText.stringValue += "\n目标手机：\(device)" }
         if advertisement == nil, let endpoint = phone["origin"] as? String,
@@ -286,7 +286,7 @@ final class LocationApp: NSObject, NSApplicationDelegate {
         pendingRequests.removeAllItems()
         pendingRequests.addItem(withTitle: pending.isEmpty ? "暂无待确认请求" : "请选择需要确认的控制端")
         for request in pending {
-            pendingRequests.addItem(withTitle: "\(request["label"] ?? "控制端") → \(request["deviceId"] ?? "未知手机")")
+            pendingRequests.addItem(withTitle: "\(request["label"] ?? "控制端") → \(request["deviceId"] as? String ?? "仅连接授权，尚未配置报点目标")")
             pendingRequests.lastItem?.representedObject = request["requestId"] as? String
         }
         if let selectedRequestId = selectedRequestId,
@@ -299,7 +299,7 @@ final class LocationApp: NSObject, NSApplicationDelegate {
         authorizedControllers.removeAllItems()
         authorizedControllers.addItem(withTitle: grants.isEmpty ? "暂无已授权控制端" : "请选择需要撤销的控制端")
         for grant in grants {
-            authorizedControllers.addItem(withTitle:"\(grant["label"] ?? "控制端") → \(grant["deviceId"] ?? "未知手机")")
+            authorizedControllers.addItem(withTitle:"\(grant["label"] ?? "控制端") → \(grant["deviceId"] as? String ?? "待配置报点目标")")
             authorizedControllers.lastItem?.representedObject = grant["grantId"] as? String
         }
         if let selectedId = selectedId,

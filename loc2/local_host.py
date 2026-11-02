@@ -96,7 +96,7 @@ def main():
             settings=config['nativePhone']
             state_dir=Path(config.get('stateDirectory',args.config.parent)).expanduser()
             state_dir.mkdir(mode=0o700,parents=True,exist_ok=True)
-            phone=PhoneControl(service,state_dir=state_dir,maps_config=config.get('maps'))
+            phone=PhoneControl(service,state_dir=state_dir,maps_config=config.get('maps'),native_pairing=True)
             bind=settings.get('bindAddress') or interface_address(settings.get('interface'))
             host=settings.get('advertisedHost')
             if not host:
@@ -174,7 +174,7 @@ def main():
                         if desired:
                             try:
                                 state_dir=Path(config.get('stateDirectory',args.config.parent)).expanduser()
-                                if phone is None: phone=PhoneControl(service,state_dir=state_dir,maps_config=config.get('maps'))
+                                if phone is None: phone=PhoneControl(service,state_dir=state_dir,maps_config=config.get('maps'),native_pairing=True)
                                 host=settings.get('advertisedHost')
                                 if not host:
                                     query=subprocess.run(['/usr/sbin/scutil','--get','LocalHostName'],capture_output=True,text=True,timeout=3)

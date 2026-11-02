@@ -21,7 +21,7 @@ from loc2.native_server import NativeServer
 def current_address(interface):
     assert interface is None
     return '127.0.0.1'
-with patch.object(local_host.USBBackend, 'device_ids', return_value=['test-phone']), \\
+with patch.object(local_host.USBBackend, 'device_ids', return_value=[]), \\
      patch.object(local_host, 'interface_address', side_effect=current_address), \\
      patch.object(local_host, 'NativeServer', type('EphemeralServer', (NativeServer,), {
          '__init__': lambda self, address, control, host, state_dir:
