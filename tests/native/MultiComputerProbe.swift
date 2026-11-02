@@ -12,9 +12,14 @@ import Foundation
         do {
             let folder = URL(fileURLWithPath:CommandLine.arguments[1])
             let profiles = try JSONDecoder().decode([ServerProfile].self,from:Data(contentsOf:folder.appendingPathComponent("profiles.json")))
-            let a = profiles[0],b = profiles[1]
+            let a = profiles[0],b = profiles[1],unbound = profiles[2]
             let tunnel = USBControlTunnel(devicePort:UInt16(CommandLine.arguments[2])!)
             let connector = ComputerConnector(usb:tunnel,timeout:1)
+            guard let paired = await connector.discover([unbound],currentID:unbound.id,sessionOwnerID:nil),
+                  paired.client.profile.id == unbound.id,paired.status["targetBound"] as? Bool == false else {
+                throw AppFailure("Paired Mac without a reporting target appeared offline")
+            }
+            paired.client.close()
             var stalled = a
             stalled.endpoint = "https://localhost:" + (try String(contentsOf:folder.appendingPathComponent("stalled-port"))).trimmingCharacters(in:.whitespacesAndNewlines)
             let began = Date()
@@ -71,7 +76,7 @@ import Foundation
             let applied = try await fallback.client.request("/v1/apply",body:command)
             guard SessionSnapshot(applied).sessionID != nil else { throw AppFailure("Chosen computer did not accept command") }
             _ = try await fallback.client.request("/v1/stop",body:SessionSnapshot(applied).command)
-            print("PASS: separate credentials, USB identity matching, LAN fallback, session-owner preference and no command replay")
+            print("PASS: unbound pairing reachability, separate credentials, USB identity matching, LAN fallback, session-owner preference and no command replay")
         } catch { print("FAIL:",error.localizedDescription);exit(1) }
     }
 }

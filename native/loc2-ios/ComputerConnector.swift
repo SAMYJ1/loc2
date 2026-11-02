@@ -51,8 +51,10 @@ final class ComputerConnector: @unchecked Sendable {
         // A reachable Mac that is already reporting keeps ownership until stopped.
         if let owner = profiles.first(where:{ $0.id == sessionOwnerID }),let result = await connect(owner) { return result }
         if usb?.endpoint != nil,let result = await race(profiles,route:.usb) { return result }
+        // A paired Mac can be reachable before a reporting target is configured.
+        // Keep that transport state online; target availability is shown separately.
         if let current = profiles.first(where:{ $0.id == currentID }),current.id != sessionOwnerID,
-           let result = await probe(current,route:.network) { return result }
+           let result = await probe(current,route:.network,requireDevice:false) { return result }
         let others = profiles.filter { $0.id != currentID && $0.id != sessionOwnerID }
         return await race(others,route:.network)
     }

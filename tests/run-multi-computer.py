@@ -18,8 +18,10 @@ class RecordingHandler(NativeHandler):
 
 with tempfile.TemporaryDirectory(prefix='loc2-multi-computer-') as directory:
     folder=Path(directory);servers=[];profiles=[];services=[];a_off=threading.Event()
-    for label in ('a','b'):
-        service=SessionService(USBFixture());service.refresh_devices();control=PhoneControl(service)
+    for label in ('a','b','unbound'):
+        backend=USBFixture()
+        if label=='unbound':backend.devices=[]
+        service=SessionService(backend);service.refresh_devices();control=PhoneControl(service,native_pairing=label=='unbound')
         challenge=control.create_pairing();request=control.request_pairing(dict(challenge=challenge['challenge'],pollSecret='f'*64,label='fixture'))
         control.approve(request['requestId']);_,token=control.poll_pairing(dict(requestId=request['requestId'],pollSecret='f'*64))
         server=NativeServer(('127.0.0.1',0),control,'localhost',folder/label)
@@ -55,6 +57,7 @@ with tempfile.TemporaryDirectory(prefix='loc2-multi-computer-') as directory:
             subprocess.run([str(executable),str(folder),str(port)],check=True,timeout=45)
         assert '/v1/apply' not in servers[0].actions and '/v1/stop' not in servers[0].actions
         assert servers[1].actions.count('/v1/apply')==1 and servers[1].actions.count('/v1/stop')==1
+        assert '/v1/apply' not in servers[2].actions and '/v1/stop' not in servers[2].actions
         assert 'Bearer '+profiles[0]['token'] not in servers[1].tokens
         assert 'Bearer '+profiles[1]['token'] not in servers[0].tokens
         assert not any(token and 'never-transmit-fixture-' in token for server in servers for token in server.tokens)
