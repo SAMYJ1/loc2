@@ -6,6 +6,8 @@ import Darwin
 
 final class LocationApp: NSObject, NSApplicationDelegate {
     private var item: NSStatusItem!
+    private var menuBarIcon: MenuBarStatusIcon?
+    private let menuStatus = NSMenuItem(title:"toAnywhere · 正在启动",action:nil,keyEquivalent:"")
     private var window: NSWindow!
     private var pairingWindow: NSWindow!
     private let statusText = NSTextField(wrappingLabelWithString: "正在启动本机会话服务…")
@@ -43,9 +45,13 @@ final class LocationApp: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
-        item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        item.button?.title = "toAnywhere"
+        item = NSStatusBar.system.statusItem(withLength:28)
+        if let button = item.button { menuBarIcon = MenuBarStatusIcon(button:button) }
+        updateMenuBar(state:"connecting",description:"正在启动")
         let menu = NSMenu()
+        menuStatus.isEnabled = false
+        menu.addItem(menuStatus)
+        menu.addItem(.separator())
         menu.addItem(withTitle: "打开详情", action: #selector(showDetails), keyEquivalent: "")
         menu.addItem(withTitle: "更新手机 App", action: #selector(updatePhone), keyEquivalent: "")
         menu.addItem(withTitle: "初始化或更新网络授权…", action: #selector(authorizeNetwork), keyEquivalent: "")
@@ -170,12 +176,15 @@ final class LocationApp: NSObject, NSApplicationDelegate {
             DispatchQueue.main.async {
                 guard let self = self, !self.terminating else { return }
                 self.statusText.stringValue = "本机会话服务已退出。请检查 Python 3 与运行时配置后重新打开应用。"
-                self.item.button?.title = "toAnywhere · 异常"
+                self.updateMenuBar(state:"error",description:"本机会话服务已退出")
                 self.input = nil
             }
         }
         do { try task.run();process = task;send("status") }
-        catch { statusText.stringValue = "无法启动 Python 3 会话服务，请检查本机环境。";input = nil }
+        catch {
+            statusText.stringValue = "无法启动 Python 3 会话服务，请检查本机环境。";input = nil
+            updateMenuBar(state:"error",description:"本机会话服务启动失败")
+        }
     }
 
     private func send(_ action: String, values: [String: Any] = [:]) {
@@ -185,7 +194,10 @@ final class LocationApp: NSObject, NSApplicationDelegate {
         guard var data = try? JSONSerialization.data(withJSONObject: request) else { return }
         data.append(10)
         do { try input.write(contentsOf: data) }
-        catch { self.input = nil;statusText.stringValue = "本机会话服务连接已断开" }
+        catch {
+            self.input = nil;statusText.stringValue = "本机会话服务连接已断开"
+            updateMenuBar(state:"error",description:"本机会话服务连接已断开")
+        }
     }
 
     private func receive(_ data: Data) {
@@ -207,10 +219,15 @@ final class LocationApp: NSObject, NSApplicationDelegate {
         }
     }
 
+    private func updateMenuBar(state: String,description: String) {
+        menuBarIcon?.update(state:state,description:description)
+        menuStatus.title = "toAnywhere · \(description)"
+    }
+
     private func render() {
         let names = ["ready":"就绪", "disconnected":"未连接", "connecting":"正在连接", "waiting-for-video":"正在准备定位会话", "waiting-for-subscription":"等待手机位置订阅", "reporting":"正在报点", "stopped":"已停止报点", "error":"异常"]
         let status = names[state["state"] as? String ?? ""] ?? "未知状态"
-        item.button?.title = "toAnywhere · \(status)"
+        updateMenuBar(state:state["state"] as? String ?? "disconnected",description:status)
         let count = (state["availableDevices"] as? [String])?.count ?? 0
         let adoption = state["adoption"] as? String == "user-confirmed" ? "位置采用：用户已确认" : "位置采用：未确认"
         let recovery = state["recovery"] as? String == "user-confirmed" ? "恢复：用户已确认" : state["recovery"] as? String == "pending" ? "恢复：待手机确认" : "恢复：暂无待确认"

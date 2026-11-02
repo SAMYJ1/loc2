@@ -36,10 +36,17 @@ struct PlaceLibrary: Codable {
     var draft: Point?
 }
 
-struct ServerProfile: Codable, Equatable {
+struct ServerProfile: Codable, Equatable, Identifiable, Sendable {
     var endpoint: String
     var fingerprint: String
     var token: String?
+    var name: String? = nil
+    var id: String { fingerprint.lowercased() }
+    var displayName: String {
+        if let name,!name.isEmpty { return name }
+        let host = URL(string:endpoint)?.host ?? "Mac"
+        return host.hasSuffix(".local") ? String(host.dropLast(6)) : host
+    }
 }
 
 struct Invitation: Decodable {
@@ -68,6 +75,7 @@ struct SessionSnapshot {
     var revision = 0
     var sessionID: String?
     var deviceID = ""
+    var targetAvailable = false
     var state = "disconnected"
     var target: Point?
     var batches = 0
@@ -101,6 +109,7 @@ struct SessionSnapshot {
         deviceID = value["deviceId"] as? String ?? ""
         nativeMapPointsEnabled = value["nativeMapPointsEnabled"] as? Bool ?? false
         let data = value["status"] as? [String:Any] ?? [:]
+        targetAvailable = (data["availableDevices"] as? [String] ?? []).contains(deviceID)
         epoch = data["controlEpoch"] as? String ?? ""
         revision = data["controlRevision"] as? Int ?? 0
         sessionID = data["sessionId"] as? String
@@ -132,7 +141,11 @@ struct SessionSnapshot {
 
 struct AppFailure: LocalizedError {
     let message: String
-    init(_ message: String) { self.message = message }
+    var statusCode: Int?
+    var identityFailure: Bool
+    init(_ message: String,statusCode: Int? = nil,identityFailure: Bool = false) {
+        self.message = message;self.statusCode = statusCode;self.identityFailure = identityFailure
+    }
     var errorDescription: String? { message }
 }
 

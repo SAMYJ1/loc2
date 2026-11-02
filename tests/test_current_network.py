@@ -7,7 +7,7 @@ class CurrentNetworkTests(unittest.TestCase):
     def setUp(self):
         self.requests=[];self.now=0
         self.network=CurrentNetwork(self.requests.append,clock=lambda:self.now)
-        self.meta=dict(ssid='CurrentNetwork',channel=48,wifiInterface='en0',accessPointMAC='00:11:22:33:44:55',wifiSecurity=4)
+        self.meta=dict(ssid='CurrentNetwork',channel=48,wifiInterface='en0',accessPointMAC='00:11:22:33:44:55',wifiSecurity=2)
     def ready(self):
         self.network.update_metadata(self.meta);self.network.prepare()
         self.assertTrue(self.network.complete(self.requests[-1]['requestId'],dict(self.meta,password='test-only')))
@@ -51,3 +51,60 @@ class CurrentNetworkTests(unittest.TestCase):
         self.assertFalse(self.network.update_metadata(dict(self.meta,channel=36,accessPointMAC='00:11:22:33:44:66')))
         self.assertFalse(self.network.ready)
         self.assertTrue(self.network.update_metadata(dict(self.meta,ssid='DifferentSSID')))
+
+    def test_wpa3_is_rejected_before_accepting_a_target_or_starting_receiver(self):
+        from unittest.mock import patch
+        from location_lab.wireless import WirelessBackend
+        self.ready()
+        wpa3=dict(self.meta,wifiSecurity=4)
+        self.network.update_metadata(wpa3);self.network.prepare()
+        if self.network.pending:
+            self.network.complete(self.requests[-1]['requestId'],dict(wpa3,password='test-only'))
+        # A metadata refresh must not reuse previously accepted WPA2 credentials.
+        backend=WirelessBackend(None,current_network=self.network,target_bluetooth='00:11:22:33:44:55',
+                                enumerate_devices=lambda:[],address=lambda _: '192.168.1.2')
+        service=SessionService(backend)
+        with patch.object(backend,'start') as start:
+            with self.assertRaisesRegex(ValueError,'WPA3'):
+                service.apply(backend.device_id,dict(latitude=1,longitude=2))
+            start.assert_not_called()
+        self.assertIsNone(service.status()['sessionId']);self.assertIsNone(service.status()['target'])
+        self.assertEqual(self.network.issue,'unsupported-wpa3')
+        self.assertIn('USB',self.network.hint)
+        self.assertFalse(self.network.prepare(force=True,interactive=True))
+        self.assertEqual(len(self.requests),1)
+        # Returning to a supported network restores preparation without a restart.
+        self.network.update_metadata(self.meta);self.network.prepare()
+        self.assertTrue(self.network.complete(self.requests[-1]['requestId'],dict(self.meta,password='test-only')))
+        self.assertTrue(self.network.ready)
+
+    def test_wpa3_transition_also_blocks_the_legacy_wifi_sharing_crash(self):
+        self.network.update_metadata(dict(self.meta,wifiSecurity=3))
+        self.assertFalse(self.network.prepare(force=True))
+        self.assertEqual(self.requests,[])
+        self.assertEqual(self.network.issue,'unsupported-wpa3')
+
+    def test_verified_transition_runtime_requires_actual_ap_transition_evidence(self):
+        self.network=CurrentNetwork(self.requests.append,clock=lambda:self.now,allow_wpa3_transition=True)
+        meta=dict(self.meta,wifiSecurity=4)
+        self.network.update_metadata(meta);self.network.prepare()
+        response=dict(meta,password='test-only',wifiHandshakeSecurity=3,wifiAPSupportsTransition=True)
+        self.assertTrue(self.network.complete(self.requests[-1]['requestId'],response))
+        self.assertEqual(self.network.settings()['wifiHandshakeSecurity'],3)
+        self.assertEqual(self.network.metadata['wifiSecurity'],4)
+        self.network.update_metadata(self.meta);self.network.prepare()
+        self.assertTrue(self.network.complete(self.requests[-1]['requestId'],dict(self.meta,
+            password='test-only',wifiHandshakeSecurity=3,wifiAPSupportsTransition=True)))
+        self.assertEqual(self.network.settings()['wifiHandshakeSecurity'],3)
+        self.network.update_metadata(meta);self.network.prepare()
+        self.assertFalse(self.network.complete(self.requests[-1]['requestId'],dict(response,wifiAPSupportsTransition=False)))
+        self.assertFalse(self.network.ready)
+        self.assertEqual(self.network.issue,'unsupported-wpa3')
+
+    def test_pure_wpa3_cannot_be_relabelled_as_wpa2(self):
+        self.network=CurrentNetwork(self.requests.append,allow_wpa3_transition=True)
+        meta=dict(self.meta,wifiSecurity=4)
+        self.network.update_metadata(meta);self.network.prepare()
+        self.assertFalse(self.network.complete(self.requests[-1]['requestId'],dict(meta,
+            password='test-only',wifiHandshakeSecurity=2,wifiAPSupportsTransition=False)))
+        self.assertFalse(self.network.ready)

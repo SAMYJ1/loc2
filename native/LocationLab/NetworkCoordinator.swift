@@ -55,9 +55,19 @@ final class NetworkCoordinator: NSObject, CLLocationManagerDelegate {
             guard let self else { return }
             var result = errSecSuccess
             var password: String?
-            do { password = try self.credentials.password(for:ssid,interactive:interactive) }
-            catch let error as WiFiCredentialFailure { result = error.status }
-            catch { result = errSecInternalError }
+            let wifi = CWWiFiClient.shared().interface(withName:current["wifiInterface"] as? String ?? "en0")
+            let observed = try? wifi?.scanForNetworks(withSSID:Data(ssid.utf8))
+            let bssid = current["accessPointMAC"] as? String
+            let accessPoint = observed?.first { $0.bssid?.lowercased() == bssid?.lowercased() }
+            let transition = accessPoint?.supportsSecurity(.wpa3Transition) == true
+            let security = transition ? 3 : (current["wifiSecurity"] as? Int ?? 0)
+            let unsupportedWPA3 = security >= 3 && !transition
+            if unsupportedWPA3 { result = errSecParam }
+            else {
+                do { password = try self.credentials.password(for:ssid,interactive:interactive) }
+                catch let error as WiFiCredentialFailure { result = error.status }
+                catch { result = errSecInternalError }
+            }
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
                 self.fetching = nil
@@ -68,8 +78,10 @@ final class NetworkCoordinator: NSObject, CLLocationManagerDelegate {
                     self.requested = nil
                     if result == errSecSuccess,let password,!password.isEmpty,matches {
                         var value = current;value["password"] = password
+                        value["wifiHandshakeSecurity"] = security
+                        value["wifiAPSupportsTransition"] = transition
                         self.completion?(identifier,value,nil)
-                    } else { self.completion?(identifier,nil,matches ? "keychain:\(result)" : "network-changed") }
+                    } else { self.completion?(identifier,nil,matches ? (unsupportedWPA3 ? "unsupported-wpa3" : "keychain:\(result)") : "network-changed") }
                 }
                 if self.requested != nil { self.obtain() }
             }

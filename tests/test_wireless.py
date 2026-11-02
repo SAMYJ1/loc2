@@ -8,6 +8,36 @@ from location_lab.session import SessionService
 from test_runtime_boundary import RECEIVER
 
 class WirelessTests(unittest.TestCase):
+    def test_verified_transition_reaches_receiver_without_legacy_wifi_sharing(self):
+        import hashlib
+        from location_lab.current_network import CurrentNetwork
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            executable=root/'resources/runtime/MacPlayReceiver.app/Contents/MacOS/MacPlayReceiver';executable.parent.mkdir(parents=True)
+            source=RECEIVER.replace("assert 'wireless' in settings", "assert settings['wifiSecurity']==3\nassert os.environ['MACPLAY_REUSE_CONNECTED_WIFI']=='1'\nopen(os.path.join(os.environ['MACPLAY_RESOURCES'],'started'),'w').close()")
+            source=source.replace("print('location: subscribed [1,2]',flush=True)","print('[MVP] location-start channel=bluetooth [1,2]',flush=True)")
+            executable.write_text(source);executable.chmod(0o700)
+            for name in ('resources/engine/main.js','data/authentication/identity.pk8','data/authentication/certificate.p7b','data/cp/macplay-v3/identity.json'):
+                p=root/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_text('fixture')
+            driver=root/'resources/driver';driver.mkdir();helper=driver/'livi-helperd';helper.write_bytes(b'transition-fixture')
+            (driver/'location-lab-capabilities.json').write_text(json.dumps(dict(schemaVersion=1,wpa3Transition=True,
+                helperSHA256=hashlib.sha256(helper.read_bytes()).hexdigest())))
+            requests=[];network=CurrentNetwork(requests.append,allow_wpa3_transition=True)
+            metadata=dict(ssid='fixture',channel=40,wifiInterface='en0',accessPointMAC='00:11:22:33:44:55',wifiSecurity=4)
+            network.update_metadata(metadata);network.prepare()
+            self.assertTrue(network.complete(requests[-1]['requestId'],dict(metadata,password='test-only',wifiHandshakeSecurity=3,wifiAPSupportsTransition=True)))
+            backend=WirelessBackend(root,current_network=network,target_bluetooth='00:11:22:33:44:66',enumerate_devices=lambda:[],address=lambda _: '192.168.1.2')
+            service=SessionService(backend);self.addCleanup(service.shutdown)
+            service.apply(backend.device_id,dict(latitude=1,longitude=2))
+            deadline=time.monotonic()+5
+            while time.monotonic()<deadline and not service.status()['videoReady']:time.sleep(.01)
+            self.assertTrue(service.status()['videoReady']);self.assertTrue(service.status()['subscribed'])
+            service.tick();self.assertEqual(service.status()['helperAcceptedBatches'],1)
+            service.stop();(root/'resources/started').unlink()
+            helper.write_bytes(b'old-helper-without-capability')
+            with self.assertRaises(ValueError):service.apply(backend.device_id,dict(latitude=1,longitude=2))
+            self.assertFalse((root/'resources/started').exists());self.assertIsNone(backend.process)
+
     def test_real_receiver_events_use_selected_lane_and_network_loss_ends_session(self):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder)
@@ -42,6 +72,13 @@ class WirelessTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             p=Path(folder)/'network';p.write_text('{}');p.chmod(0o644)
             with self.assertRaises(ValueError):network_config(p)
+
+    def test_legacy_configuration_cannot_send_the_rejected_wpa3_security_type(self):
+        with tempfile.TemporaryDirectory() as folder:
+            for mode in (3,4):
+                p=Path(folder)/'network';p.write_text(json.dumps(dict(ssid='test-network',password='test-only',
+                    wifiInterface='en0',targetBluetooth='00:11:22:33:44:55',channel=48,wifiSecurity=mode)));p.chmod(0o600)
+                with self.subTest(mode=mode),self.assertRaisesRegex(ValueError,'WPA3'):network_config(p)
 
     def test_stop_marker_is_bound_to_one_run_and_cannot_recreate_deleted_run(self):
         from location_lab.cli import request_stop

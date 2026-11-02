@@ -14,7 +14,7 @@ with tempfile.TemporaryDirectory(prefix='ll-tls-') as directory:
     try:
         profile=folder/'profile.json';profile.write_text(json.dumps(dict(endpoint=f'https://LOCALHOST:{server.server_port}',fingerprint=server.fingerprint)))
         executable=folder/'probe'
-        sources=['Models.swift','Coordinates.swift','Connection.swift','USBControlTunnel.swift']
+        sources=['Models.swift','Coordinates.swift','Connection.swift','USBControlTunnel.swift','ComputerRegistry.swift']
         sdk=subprocess.check_output(['xcrun','--sdk','macosx','--show-sdk-path'],text=True).strip()
         arch=subprocess.check_output(['uname','-m'],text=True).strip()
         compile_result=subprocess.run(['xcrun','swiftc','-sdk',sdk,'-target',arch+'-apple-macosx13.0','-parse-as-library',*[str(root/'native/LocationLabMobile'/name) for name in sources],str(root/'tests/native/TLSProbe.swift'),'-o',str(executable),'-framework','CoreLocation'],capture_output=True,text=True)

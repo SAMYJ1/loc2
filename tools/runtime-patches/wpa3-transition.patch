@@ -1,0 +1,172 @@
+--- a/crates/livi-runtime/tests/bringup.rs
++++ b/crates/livi-runtime/tests/bringup.rs
+@@ -74,6 +74,7 @@
+         passphrase: "12345678".into(),
+         channel: 36,
+         security_type: SecurityType::WpaWpa2,
++        reuse_connected_wifi: false,
+         airplay_port: 7000,
+         source_version: "950.7.1".into(),
+         public_key: String::new(),
+@@ -81,6 +82,40 @@
+         av_iface: None,
+         available_current_ma: 500,
+     }
++}
++
++#[tokio::test]
++async fn existing_wifi_start_uses_transition_without_legacy_wifi_sharing() {
++    let (accessory, mut phone) = pair();
++    let (tx, mut rx) = mpsc::channel(32);
++    let mut cp = cp_config();
++    cp.security_type = SecurityType::Wpa3Transition;
++    cp.reuse_connected_wifi = true;
++    cp.wireless_handoff = livi_runtime::wireless_handoff::WirelessHandoff::new("192.0.2.10", "fe80::10");
++    let handle = tokio::spawn(run_accessory(accessory, MockAuth { cert: vec![1] }, identity(), cp, tx, VehicleFeed::quiet()));
++    phone.send(StartIdentification {}.encode()).await.unwrap();
++    let ident = IdentificationInformation::decode(&phone.expect(0x1D01).await).unwrap();
++    assert!(!ident.messages_sent_by_accessory.chunks_exact(2).any(|m| m == [0x57,0x03]));
++    assert!(!ident.messages_received_from_accessory.chunks_exact(2).any(|m| m == [0x57,0x02]));
++    phone.send(IdentificationAccepted {}.encode()).await.unwrap();
++    assert_eq!(rx.recv().await,Some(BringupEvent::Identified));
++    phone.send(AuthenticationSucceeded {}.encode()).await.unwrap();
++    assert_eq!(rx.recv().await,Some(BringupEvent::Authenticated));
++    for expected in [0x5000,0x5200,0xAE00,0x4157,0x4154] { phone.expect(expected).await; }
++    assert_eq!(rx.recv().await,Some(BringupEvent::Subscribed));
++    phone.send(iap2_csm::messages::wifi::RequestAccessoryWiFiConfigurationInformation {}.encode()).await.unwrap();
++    phone.send(CarPlayAvailability {
++        wired_attributes:None,
++        wireless_attributes:Some(CarPlayAvailabilityWirelessAttributes { available:Some(true),bluetooth_transport_identifier:None }),
++    }.encode()).await.unwrap();
++    let frame = tokio::time::timeout(std::time::Duration::from_secs(1),phone.expect(0x4301)).await.unwrap();
++    let wireless = CarPlayStartSession::decode(&frame).unwrap().wireless_attributes.unwrap();
++    assert_eq!(wireless.wifi_ssid.as_deref(),Some("LIVI"));
++    assert_eq!(wireless.passphrase.as_deref(),Some("12345678"));
++    assert_eq!(wireless.channel,Some(36));
++    assert_eq!(wireless.ip_address,vec!["192.0.2.10"]);
++    assert_eq!(wireless.security_type,Some(3));
++    drop(phone);handle.await.unwrap();
+ }
+
+ #[tokio::test]
+--- a/crates/livi-runtime/tests/livi_sock.rs
++++ b/crates/livi-runtime/tests/livi_sock.rs
+@@ -43,6 +43,7 @@
+             passphrase: "12345678".into(),
+             channel: 36,
+             security_type: SecurityType::WpaWpa2,
++        reuse_connected_wifi: false,
+             airplay_port: 7000,
+             source_version: "950.7.1".into(),
+             public_key: String::new(),
+--- a/crates/livi-runtime/src/bringup.rs
++++ b/crates/livi-runtime/src/bringup.rs
+@@ -29,6 +29,8 @@
+     pub passphrase: String,
+     pub channel: u8,
+     pub security_type: SecurityType,
++    /// Reuse the already-connected WLAN without rewriting its security settings.
++    pub reuse_connected_wifi: bool,
+     pub airplay_port: u32,
+     pub source_version: String,
+     pub public_key: String,
+@@ -149,8 +151,9 @@
+     ch: &mut C,
+     id: &Identity,
+     transport: Transport,
++    reuse_connected_wifi: bool,
+ ) -> Result<(), BringupError> {
+-    let mut exclude: Vec<&str> = Vec::new();
++    let mut exclude: Vec<&str> = if reuse_connected_wifi { vec!["wifi_configuration"] } else { Vec::new() };
+     loop {
+         let frame = recv(ch).await?;
+         match frame_msg_id(&frame) {
+@@ -248,6 +251,10 @@
+             }
+         }
+     }
++}
++
++fn reuses_connected_wifi(cp: &CpConfig) -> bool {
++    cp.reuse_connected_wifi && cp.transport == Transport::Wireless && cp.wireless_handoff.is_some()
+ }
+
+ fn wifi_config(cp: &CpConfig) -> AccessoryWiFiConfigurationInformation {
+@@ -404,7 +411,7 @@
+     bootstrap: bool,
+ ) {
+     let location_lane = if cp.transport == Transport::Wired { "usb" } else if bootstrap { "bluetooth" } else { "wifi" };
+-    if let Err(e) = run_identification(&mut ch, &id, cp.transport).await {
++    if let Err(e) = run_identification(&mut ch, &id, cp.transport, reuses_connected_wifi(&cp)).await {
+         let _ = events.send(BringupEvent::Failed(e.to_string())).await;
+         return;
+     }
+@@ -553,6 +560,7 @@
+                 println!("[cp] vehicle status: stopped");
+             }
+             0x5702 => {
++                if reuses_connected_wifi(&cp) { continue; }
+                 if ch.send(wifi_config(&cp).encode()).await.is_err() {
+                     break;
+                 }
+@@ -670,6 +678,7 @@
+             passphrase: "12345678".into(),
+             channel: 36,
+             security_type: SecurityType::WpaWpa2,
++            reuse_connected_wifi: false,
+             airplay_port: 7000,
+             source_version: "950.7.1".into(),
+             public_key: String::new(),
+--- a/crates/livi-runtime/src/ident.rs
++++ b/crates/livi-runtime/src/ident.rs
+@@ -47,6 +47,11 @@
+     let dropped = |f: &str| exclude.contains(&f);
+     let wired = transport == Transport::Wired;
+     let mut sent = SENT.to_vec();
++    let mut received = RECEIVED.to_vec();
++    if dropped("wifi_configuration") {
++        sent.retain(|id| *id != 0x5703);
++        received.retain(|id| *id != 0x5702);
++    }
+     if wired {
+         sent.push(POWER_SOURCE_UPDATE);
+     }
+@@ -58,7 +63,7 @@
+         firmware_version: if id.name == "MacPlay" {"1.2.3"} else {"1.0.0"}.into(),
+         hardware_version: "1.0".into(),
+         messages_sent_by_accessory: ids(&sent),
+-        messages_received_from_accessory: ids(RECEIVED),
++        messages_received_from_accessory: ids(&received),
+         power_providing_capability: if wired {
+             PowerProvidingCapability::Advanced
+         } else {
+--- a/bin/mac-usbmuxd-probe/src/main.rs
++++ b/bin/mac-usbmuxd-probe/src/main.rs
+@@ -26,6 +26,7 @@
+             passphrase: "12345678".into(),
+             channel: 36,
+             security_type: SecurityType::WpaWpa2,
++        reuse_connected_wifi: false,
+             airplay_port: 7000,
+             source_version: "950.7.1".into(),
+             public_key: String::new(),
+--- a/bin/livi-helperd/src/linux_main.rs
++++ b/bin/livi-helperd/src/linux_main.rs
+@@ -247,6 +247,7 @@
+         passphrase: dc.string("wifiPassword", "LIVI_PASSPHRASE", "12345678"),
+         channel: dc.int("wifiChannel", "LIVI_CHANNEL", 36u16) as u8,
+         security_type: SecurityType::WpaWpa2,
++        reuse_connected_wifi: false,
+         airplay_port: env_or("LIVI_CP_AIRPLAY_PORT", 7000),
+         source_version: dc.string("carPlaySourceVersion", "LIVI_CP_SOURCE_VERSION", "950.7.1"),
+         public_key: std::env::var("LIVI_CP_PI").unwrap_or_default(),
+--- a/bin/livi-helperd/src/mac_main.rs
++++ b/bin/livi-helperd/src/mac_main.rs
+@@ -56,6 +56,7 @@
+         ssid: name.clone(),
+         passphrase: env_s("LIVI_PASSPHRASE", ""),
+         channel: env_s("LIVI_CHANNEL", "36").parse().unwrap_or(36),
++        reuse_connected_wifi: env_s("MACPLAY_REUSE_CONNECTED_WIFI", "0") == "1",
+         security_type: match env_s("MACPLAY_WIFI_SECURITY", "2").as_str() {
+             "2" => SecurityType::WpaWpa2,
+             "3" => SecurityType::Wpa3Transition,

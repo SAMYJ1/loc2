@@ -164,3 +164,66 @@ IPv6 修正使用真实运行时的 discovery 模块进行离线回归：修正�
 2026-11-02，GitHub 私有仓库更名为 `SAMYJ1/toAnywhere`，本地 Git origin 已同步；实体工作目录迁为 `/Users/eugene/code/toAnywhere`。迁移前后核对全部 125 个已跟踪／未忽略源码文件的内容哈希和 Git HEAD，一致后才进行名称、链接及构建入口更新；未提交或推送本地工作。
 
 Xcode 工程、target 和 scheme 统一为 `toAnywhere`，工程位于 `native/LocationLabMobile/toAnywhere.xcodeproj`。手机更新配置的 `mobile.projectRoot` 已指向新目录，新的工程构建及 Python 78 项测试通过。保留旧根目录路径到新目录的符号链接，供历史聊天的工作目录兼容；应用 bundle identifiers、数据目录、钥匙串标识继续保留兼容值。
+
+## 2026-11-02：多台 Mac 的自动连接
+
+用户要求同一台 iPhone 保存多台电脑，某台不可用时自动尝试其他电脑。实现见 [ADR-0005](adr/0005-multiple-paired-computers.md)。
+
+- 单电脑钥匙串记录兼容加载到多电脑模型；配对新增电脑不覆盖其他电脑，同一证书身份重新配对时更新凭据并保留自定义名称。相同主机名但证书不同的电脑保持独立。
+- 发现只使用已配对身份的状态请求：优先保持可达的活动会话归属，再匹配 USB、当前可用局域网电脑及其他候选。并发探测上限为 4，单次探测有短超时，失败电脑不阻塞后续候选。
+- USB 与网络路由显式区分；USB 接到 B 时，不会把 A 的凭据送给 B，也不阻断对 A 的网络探测。所有连接继续校验独立证书指纹、主机名与令牌。
+- 有副作用的应用／停止操作只发给操作时选定的电脑，不跨电脑重试。应用请求发出前持久记录可能活动的会话；响应丢失或原电脑不可达时保留归属，防止自动切换后同时启动第二台报点。原电脑明确返回停止状态后自动解除，也提供用户在原电脑停止后的确认入口。
+- 恢复观察按电脑隔离，旧全局恢复记录只允许原迁移电脑读取。设置提供电脑列表、添加、重命名与移除。
+
+验证：Python 78 项回归通过；原生 TLS 和 USB 控制集成仍通过；新增 `tests/run-multi-computer.py` 使用两套独立证书／令牌的真实 HTTPS 服务，覆盖不响应、离线、授权失效、USB 匹配、USB 上未知身份不阻塞 LAN、活动会话归属、17 个 USB 候选的有界探测及无额外应用／停止请求，并确认没有跨电脑令牌泄露。另有旧记录迁移、同名电脑、凭据更新、未确认会话持久化与恢复作用域检查。
+
+真机构建与安装完成。用户暂时没有第二台实体 Mac；多电脑切换目前由双服务环境验证，不能写成两台实体 Mac 真机切换已验收。用户已在手机上确认“原来的 Mac 已保留并自动连接”，原单电脑配对兼容加载和自动连接已通过现有设备验证，无需重新扫码。
+
+## 2026-11-02：WPA3 网络触发手机配件服务崩溃
+
+用户报告再次停在“正在准备定位会话”。本轮 Mac 的 CoreWLAN 直接返回 `wpa3Personal`（raw 11），对应当前运行时发送的 iAP 安全类型 4；不能沿用此前成功网络为 WPA2 的结论。
+
+- 手机日志明确记录 `Invalid accessory security type 4`，随后抛出 `NSInvalidArgumentException`，原因是字典的 `securityType` 值为 nil。12:16、12:26、12:27 和 12:30 的四份 `accessoryd` 崩溃报告均指向 `WiFiSharing / handleAccessoryWiFiInformationForWirelessCarPlay:`。
+- 蓝牙认证和部分轮次的位置订阅已经通过，但 CarPlay 网络连接、视频帧及报点数为零；应用会话在 180 秒上限结束。绕过手机 App 的只建连诊断同样失败，未调用位置发送。用户关闭再开启 Wi-Fi 后仍复现，不能归因于多电脑切换或简单的 Wi-Fi 状态未刷新。
+- 修正在当前网络准备、旧配置加载及进程启动边界拒绝无线安全类型 4；显示 WPA3 暂不支持以及 USB／WPA2 替代路径。保留真实网络类型，不将其改写为 WPA2，也不修改路由器设置。USB 路径继续独立于 Wi-Fi 准备。
+- 回归先复现安全类型 4 可进入会话／启动边界，再验证拒绝启动、无目标接受、无需读取网络凭据、返回 WPA2 后可重新准备，以及 WPA3 网络下 USB 报点仍可通过夹具验证。Python 全部 82 项测试通过，Mac 构建通过。
+
+Mac 应用已更新并重启，签名 designated requirement 与更新前一致，本机配置内容哈希不变。当前真实网络状态已返回 `networkIssue=unsupported-wpa3` 和明确的连接提示，没有活动定位会话，接收器／helper／蓝牙桥进程均为零。
+
+此修复阻止已知崩溃触发条件，不代表当前 WPA3 无线连接已经兼容。原始手机日志和崩溃报告仅保留本机私有诊断目录，未加入仓库。
+
+### WPA3 兼容修复尝试
+
+随后按用户请求，在独立源码／运行时副本中继续验证，未覆盖已安装的 helper。Mac 的授权进程读取当前 BSSID 对应的 CoreWLAN 扫描结果，确认该接入点同时支持 WPA2、WPA3 和 transition；`security() == wpa3Personal` 不能单独证明它是仅 WPA3 接入点。此前按类型 4 直接代表 AP 的判断需要收窄。
+
+六轮只建连诊断均未调用位置发送：
+
+| 改动／条件 | 结果 |
+| --- | --- |
+| 不声明 WiFiSharing，启动请求不带密码与安全类型 | 无新崩溃；手机按无 Wi-Fi 凭据路径处理，拒绝原因含 UUID Mismatch／No Remote IP |
+| 不声明 WiFiSharing，保留完整 WPA3 启动参数 | 无新崩溃；网络匹配拒绝，未收到视频 |
+| 补齐原应用的接入点 BSSID，再试完整 WPA3 参数 | 无新崩溃；仍为 UUID Mismatch |
+| 原 helper 改用接入点支持的 transition 类型 3 | 新增一次 accessoryd 崩溃，调用栈仍为 WiFiSharing 配置处理；保护条件扩大到类型 3／4 |
+| 旧 WiFiSharing 消息使用已观测到的 WPA2 能力，启动消息仍为 WPA3 | 无新崩溃；手机日志显示保存的 securityType 从 2 更新为 4 后，Wi-Fi UUID 变为 NULL，仍未建连 |
+| 用户刷新 Wi-Fi 后，跳过旧配置消息并保留完整 WPA3 启动参数 | 无新崩溃；仍未收到视频。用户随后说明已换 Wi-Fi 环境，因本轮参数未重新读取，不将它作为同一网络下的兼容性对照 |
+
+独立 Rust 协议回归通过，但不能代替真机连接成功。已移除临时 Swift 网络采集代码；已安装运行时 helper 的哈希与测试前一致。混合网络的 WPA2 兼容模式需要用户另行选择，因为手机日志表明会更新保存的网络安全类型；它不能作为原生 WPA3 链路已修复的证明。
+
+### 当前混合网络的修复与真机闭环
+
+用户要求继续优先尝试 WPA3，并说明已换 Wi-Fi。重新通过 Mac 授权进程读取当前 SSID／BSSID／信道及主动扫描结果：当前 Mac 连接报告 WPA2、信道 40，接入点明确支持 `wpa3Transition`。用户完成了新网络的一次钥匙串初始化；新凭据通过本机私有 FIFO 仅传到诊断进程内存，未保存密码文件，未复用旧网络凭据。
+
+公开 iOS 26.1 反编译材料中，[WiFiSharing](https://github.com/EthanArbuckle/iPhone18-3_26.1_23B85_Restore/blob/90aa0cfe59d9682b4265e1354c8b19ec3c7823ab/System/Library/CoreAccessories/PlugIns/Platform/WiFiSharing.platform/ACCPlatformPluginWiFiSharing.mm#L398)只处理 0／1／2，较大值留下 nil；[CRWiFiCarManager](https://github.com/EthanArbuckle/iPhone18-3_26.1_23B85_Restore/blob/90aa0cfe59d9682b4265e1354c8b19ec3c7823ab/usr/libexec/carkitd/CRWiFiCarManager.mm#L571)另有 SAE 分支。它们是排查线索，不作为当前 27.0 完整实现证明。
+
+新环境两轮只建连均成功并自动退出，位置发送为零、没有新增相关崩溃：先验证保留名称／密码／地址而不指定安全类型，再验证正确的 transition 类型 3。后一轮手机日志明确记录 `securityType: 3`、保存值从 2 更新为 3、`WiFi eligible: Y`，并实际收到视频首帧。
+
+最终接入应用的路径是：
+
+- Mac 在准备网络时扫描当前 BSSID 的能力；确认 transition 后才使用类型 3，不以 Mac 当前连接选择的 WPA2／WPA3 值直接推断 AP 是仅 WPA3。
+- 同网 helper 保留 CarPlay 启动请求的完整参数和类型 3，但不声明／回应旧 WiFiSharing 的 0x5703 配置路径；不再触发已确认的旧处理器崩溃。
+- 运行时能力声明绑定已验证 helper 的 SHA-256。旧 helper、摘要不匹配、缺少接入点 transition 证据以及仅 WPA3 条件不能直接放行。原 USB 运行时独立保留。
+- Python 87 项测试通过；Rust 43 项库测试及 7 项握手集成通过；Mac 构建、签名身份和安装内容核对通过。补丁与运行时摘要见 [runtime patch](../tools/runtime-patches/wpa3-transition.patch)、[manifest](native-runtime-manifest-2026-11-02.json)。
+
+14:45 的原生应用复测：实际 helper 参数为安全类型 3、同网模式开启；手机日志也收到类型 3。应用记录本地接受 7 组、入队 14 条，接收／解码各 88 帧，最后以 `requested-stop` 结束，相关接收进程均退出。用户明确确认“应用位置和恢复都正常”。采用与恢复的依据是用户观察，计数是传输证据。
+
+结论仅覆盖当前 WPA2/WPA3 混合网络的短流程。未采集 802.11 层最终 AKM 协商，不能将类型 3 等同于每次无线链路都强制 SAE；仅 WPA3 网络和两小时长测仍未验收。没有修改路由器配置，没有执行此前等待确认的强制类型 2 兼容测试，未提交或推送代码。

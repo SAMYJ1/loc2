@@ -38,6 +38,22 @@ for line in sys.stdin:
 '''
 
 class RuntimeBoundaryTests(unittest.TestCase):
+    def test_wireless_wpa3_is_blocked_at_process_launch_boundary(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            for name in ('resources/runtime/MacPlayReceiver.app/Contents/MacOS/MacPlayReceiver',
+                         'resources/engine/main.js','data/authentication/identity.pk8',
+                         'data/authentication/certificate.p7b','data/cp/macplay-v3/identity.json'):
+                path=root/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text('fixture');path.chmod(0o700)
+            backend=USBBackend(root)
+            backend.settings=lambda device:dict(wireless=True,wifiSecurity=4)
+            with patch('location_lab.backend.subprocess.Popen',side_effect=AssertionError('receiver must not launch')) as launch:
+                with self.assertRaisesRegex(ValueError,'WPA3'):
+                    backend.start('fixture','fixture-phone',lambda *a,**kw:None)
+                launch.assert_not_called()
+            self.assertIsNone(backend.run)
+
     def test_wireless_handoff_diagnostics_survive_adapter_without_private_details(self):
         lines = [
             '[cp] CarPlayAvailability wired=None wireless=Some(CarPlayAvailabilityWirelessAttributes { available: Some(false), bluetooth_transport_identifier: Some("private-device") })',

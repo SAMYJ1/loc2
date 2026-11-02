@@ -23,6 +23,7 @@ struct HomeView: View {
     @State private var focusRequest = UUID()
     @State private var locationRequest = UUID()
     @State private var selectionTask: Task<Void,Never>?
+    @State private var confirmingOldSessions = false
     @AppStorage("location-settings-shortcut-configured") private var settingsShortcutConfigured = false
     // Existing installations already imported this name; preserve their shortcut.
     @AppStorage("location-settings-shortcut-name") private var settingsShortcutName = "Location Lab 定位服务"
@@ -78,6 +79,10 @@ struct HomeView: View {
             .alert("toAnywhere",isPresented:Binding(get:{ model.notice != nil },set:{ if !$0 { model.notice = nil } })) {
                 Button("知道了",role:.cancel) { model.notice = nil }
             } message: { Text(model.notice ?? "") }
+            .confirmationDialog("确认原电脑已停止报点",isPresented:$confirmingOldSessions,titleVisibility:.visible) {
+                Button("我已在原电脑停止报点") { model.confirmOtherComputersStopped() }
+                Button("取消",role:.cancel) {}
+            } message: { Text("仅在所列电脑确实已停止报点后确认。") }
             .onDisappear { selectionTask?.cancel() }
             .tint(.teal)
     }
@@ -133,6 +138,15 @@ struct HomeView: View {
                 else if model.busy { ProgressView().controlSize(.small) }
             }
             if let hint = model.snapshot.connectionHint { Text(hint).font(.caption).foregroundStyle(.orange) }
+            if model.online,let computer = model.profile { Text("电脑：\(computer.displayName)").font(.caption).foregroundStyle(.secondary) }
+            if !model.unresolvedComputers.isEmpty {
+                VStack(alignment:.leading,spacing:6) {
+                    Text("尚未确认停止：" + model.unresolvedComputers.map(\.displayName).joined(separator:"、"))
+                        .font(.caption).foregroundStyle(.orange)
+                    Button("尝试停止原电脑报点") { Task { await model.stopUnresolvedComputers() } }.disabled(model.busy)
+                    Button("我已在原电脑停止") { confirmingOldSessions = true }.disabled(model.busy)
+                }.font(.caption)
+            }
             if model.snapshot.state == "error",let error = model.snapshot.error { Text(error).font(.caption).foregroundStyle(.orange) }
             if let message = model.pairingMessage { Text(message).font(.subheadline).foregroundStyle(.secondary) }
             if let point = model.draft {
@@ -171,7 +185,7 @@ struct HomeView: View {
             HStack(spacing:10) {
                 Button { Task { await model.apply() } } label: {
                     Label(model.profile == nil ? "连接后应用" : "应用位置",systemImage:"location.north.fill").frame(maxWidth:.infinity).padding(.vertical,6)
-                }.buttonStyle(.borderedProminent).disabled(model.draft == nil || !model.online || model.busy).accessibilityIdentifier("apply-position")
+                }.buttonStyle(.borderedProminent).disabled(model.draft == nil || !model.online || !model.snapshot.targetAvailable || model.busy || !model.unresolvedComputers.isEmpty).accessibilityIdentifier("apply-position")
                 if model.snapshot.sessionID != nil {
                     Button { Task { await model.restore() } } label:{ Label("恢复",systemImage:"arrow.uturn.backward").padding(.vertical,6) }.buttonStyle(.bordered).disabled(model.busy).accessibilityIdentifier("restore-position")
                 }
@@ -260,6 +274,8 @@ struct SettingsView: View {
     let scan: ()->Void
     let configureLocationSettings: ()->Void
     @State private var invitation = ""
+    @State private var renamingComputer: ServerProfile?
+    @State private var computerName = ""
     @Environment(\.dismiss) private var dismiss
     var body: some View {
         NavigationStack {
@@ -267,11 +283,29 @@ struct SettingsView: View {
                 Section("Mac 连接") {
                     LabeledContent("状态",value:model.stateTitle)
                     if let error = model.connectionError { Text(error).font(.caption).foregroundStyle(.secondary) }
-                    if let profile = model.profile { Text(URL(string:profile.endpoint)?.host ?? "已授权 Mac").foregroundStyle(.secondary) }
-                    Button("扫描 Mac 二维码",systemImage:"qrcode.viewfinder",action:scan)
+                    Text("优先连接 USB；当前电脑不可用时，自动尝试其他已配对电脑。每台新电脑首次需扫码授权。")
+                        .font(.caption).foregroundStyle(.secondary)
+                    ForEach(model.computers) { computer in
+                        HStack {
+                            VStack(alignment:.leading,spacing:4) {
+                                Text(computer.displayName)
+                                Text(URL(string:computer.endpoint)?.host ?? "Mac").font(.caption).foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            if model.online && model.profile?.id == computer.id {
+                                Label("已连接",systemImage:"checkmark.circle.fill").font(.caption).foregroundStyle(.teal)
+                            } else if model.unresolvedComputers.contains(where:{ $0.id == computer.id }) {
+                                Text("状态待确认").font(.caption).foregroundStyle(.orange)
+                            }
+                        }.contextMenu {
+                            Button("重命名") { computerName = computer.displayName;renamingComputer = computer }.disabled(model.busy)
+                            Button("忘记这台电脑",role:.destructive) { model.forgetComputer(computer) }.disabled(model.busy)
+                        }
+                    }
+                    Button("添加电脑：扫描二维码",systemImage:"qrcode.viewfinder",action:scan).disabled(model.busy)
                     TextField("粘贴连接邀请",text:$invitation).textInputAutocapitalization(.never).autocorrectionDisabled()
                     Button("使用连接邀请") { model.pair(invitation);invitation = "";dismiss() }.disabled(invitation.isEmpty)
-                    if model.profile != nil { Button("忘记此 Mac",role:.destructive) { model.disconnectController() };Text("忘记连接不会停止 Mac 上的现有会话。需要停止时请先点恢复，或使用 Mac 菜单栏。").font(.caption).foregroundStyle(.secondary) }
+                    if !model.computers.isEmpty { Text("长按电脑可重命名或移除。报点中的电脑需先停止；切换电脑不会重放目标位置。").font(.caption).foregroundStyle(.secondary) }
                 }
                 Section("地点") {
                     Button("导入 Mac 现有收藏") { Task { await model.importFavorites() } }.disabled(!model.online)
@@ -303,6 +337,11 @@ struct SettingsView: View {
                     }
                 }
             }.navigationTitle("设置").toolbar { ToolbarItem(placement:.confirmationAction) { Button("完成") { dismiss() } } }
+                .alert("电脑名称",isPresented:Binding(get:{renamingComputer != nil},set:{if !$0 {renamingComputer = nil}})) {
+                    TextField("名称",text:$computerName)
+                    Button("保存") { if let computer = renamingComputer { model.renameComputer(computer,name:computerName) };renamingComputer = nil }
+                    Button("取消",role:.cancel) { renamingComputer = nil }
+                }
         }
     }
 }

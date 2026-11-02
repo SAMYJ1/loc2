@@ -8,6 +8,7 @@ import re
 import stat
 import subprocess
 from .backend import USBBackend, usb_devices
+from .current_network import require_supported_security
 
 
 def interface_address(interface):
@@ -34,6 +35,7 @@ def network_config(path):
         raise ValueError('无线接口或目标设备无效')
     if type(value.get('channel')) is not int or not 1<=value['channel']<=196 or value.get('wifiSecurity',2) not in (2,3,4):
         raise ValueError('无线网络参数无效')
+    require_supported_security(value.get('wifiSecurity',2))
     return value
 
 
@@ -81,6 +83,9 @@ class WirelessBackend(USBBackend):
         network=dict(self.network)
         if self.current_network:network.update(self.current_network.settings())
         settings.update({k:v for k,v in network.items() if k in ('ssid','password','wifiInterface','channel','targetBluetooth','accessPointMAC','wifiSecurity')})
+        if self.current_network:
+            settings['wifiSecurity']=network['wifiHandshakeSecurity']
+            settings['reuseConnectedWiFi']=network['reuseConnectedWiFi']
         settings['wireless']=True
         return settings
 
