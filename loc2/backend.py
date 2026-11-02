@@ -1,6 +1,6 @@
 """USB adapter for the existing local MacPlay experiment runtime.
 
-No authentication material or third-party runtime is shipped by Location Lab.
+No authentication material or third-party runtime is shipped by loc2.
 Raw runtime output remains private to this adapter and is never printed or saved.
 """
 import base64
@@ -31,8 +31,8 @@ def _read_exact(connection, count):
 
 
 def usb_devices():
-    body = plistlib.dumps(dict(MessageType='ListDevices', ClientVersionString='LocationLab',
-                              ProgName='LocationLab', kLibUSBMuxVersion=3))
+    body = plistlib.dumps(dict(MessageType='ListDevices', ClientVersionString='Loc2',
+                              ProgName='Loc2', kLibUSBMuxVersion=3))
     with socket.socket(socket.AF_UNIX) as connection:
         connection.settimeout(2)
         connection.connect('/var/run/usbmuxd')
@@ -49,7 +49,7 @@ def usb_connect(serial,port):
     """Open a TCP stream to one explicitly selected physical USB device."""
     if type(port) is not int or not 1<=port<=65535:raise ValueError('USB 控制端口无效')
     def exchange(connection,fields):
-        body=plistlib.dumps(dict(fields,ClientVersionString='LocationLab',ProgName='LocationLab',kLibUSBMuxVersion=3))
+        body=plistlib.dumps(dict(fields,ClientVersionString='Loc2',ProgName='Loc2',kLibUSBMuxVersion=3))
         connection.sendall(struct.pack('<IIII',16+len(body),1,8,1)+body)
         size,_,_,_=struct.unpack('<IIII',_read_exact(connection,16))
         if not 16<=size<=2_000_000:raise ValueError('USB 控制响应无效')
@@ -103,7 +103,7 @@ class USBBackend:
         reuse=bool(settings.get('wireless') and settings.get('reuseConnectedWiFi') is True and supports_wpa3_transition(self.workspace))
         if settings.get('wireless'):require_supported_security(settings.get('wifiSecurity',2),reuse_connected_wifi=reuse)
         # Short root keeps the Unix socket below macOS sockaddr_un's 104-byte limit.
-        self.run = Path(tempfile.mkdtemp(prefix='ll-',dir='/tmp'))
+        self.run = Path(tempfile.mkdtemp(prefix='loc2-',dir='/tmp'))
         self.socket_path = self.run/'control.sock'
         # The helper also binds authentication/bluetooth.sock below MACPLAY_DATA.
         # Keep its lexical path short while preserving the original identity files.
@@ -120,7 +120,7 @@ class USBBackend:
         settings_path=Path('/dev/fd')/str(settings_read)
         env = dict(os.environ,MACPLAY_DATA=str(session_data),MACPLAY_SETTINGS_PATH=str(settings_path),
                    MACPLAY_RESOURCES=str(resources),MACPLAY_LANGUAGE='zh-Hans',
-                   MACPLAY_ATTEMPT='location-lab',MACPLAY_TEST_SOCKET=str(self.socket_path),
+                   MACPLAY_ATTEMPT='loc2',MACPLAY_TEST_SOCKET=str(self.socket_path),
                    MACPLAY_LOCATION_LANE=self.lane,MACPLAY_WIFI_SECURITY=str(settings.get('wifiSecurity',2)),GST_REGISTRY=str(self.run/'gst-registry.bin'),
                    MACPLAY_REUSE_CONNECTED_WIFI='1' if reuse else '0',
                    DYLD_LIBRARY_PATH=str(resources/'gstreamer/macos-arm64/lib'))

@@ -9,9 +9,9 @@ import threading
 import time
 import unittest
 from urllib.parse import urlparse,parse_qs
-from location_lab.native_server import NativeServer
-from location_lab.phone import PhoneControl
-from location_lab.session import SessionService
+from loc2.native_server import NativeServer
+from loc2.phone import PhoneControl
+from loc2.session import SessionService
 from test_session import USBFixture
 
 class NativeControlTests(unittest.TestCase):
@@ -67,7 +67,7 @@ class NativeControlTests(unittest.TestCase):
         self.assertTrue(self.request('/v1/status')[1]['nativeMapPointsEnabled'])
         self.assertEqual(self.request('/v1/apply',self.command(point))[0],200)
     def test_usb_status_does_not_request_wifi_credentials(self):
-        from location_lab.current_network import CurrentNetwork
+        from loc2.current_network import CurrentNetwork
         requests=[]
         self.backend.current_network=CurrentNetwork(requests.append)
         self.backend.requires_network=False

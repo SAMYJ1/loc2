@@ -66,8 +66,8 @@ final class MenuBarStatusIcon {
             case .ready: badge.color = nil
             }
         }
-        button.toolTip = "Location Lab · \(description)"
-        button.setAccessibilityLabel("Location Lab，\(description)")
+        button.toolTip = "Loc2 · \(description)"
+        button.setAccessibilityLabel("Loc2，\(description)")
         button.setAccessibilityHelp("点击查看状态和操作菜单")
     }
 }

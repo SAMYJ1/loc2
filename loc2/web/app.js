@@ -20,7 +20,7 @@ function setDraft(point) {
   if (point) { $('latitude').value = point.provider === 'apple-mapkit-js' ? '' : point.latitude ?? ''; $('longitude').value = point.provider === 'apple-mapkit-js' ? '' : point.longitude ?? ''; }
   $('draft-status').textContent = point ? '草稿已更新，点击应用后才改变目标位置。':'请输入有效的 WGS84 经纬度。';
   if (point?.provider === 'apple-mapkit-js') $('draft-status').textContent = `Apple 地图草稿：${point.latitude}, ${point.longitude} · ${point.inputCRS === 'WGS84' && mapPolicy ? '已配置 WGS84 校准策略，明确应用后才改变目标。' : '尚未校准，不能应用；可改用手工 WGS84。'}`;
-  render(); window.dispatchEvent(new CustomEvent('locationlab:draft',{detail:getDraft()}));
+  render(); window.dispatchEvent(new CustomEvent('loc2:draft',{detail:getDraft()}));
 }
 function manualDraft() {
   const latitude = Number($('latitude').value), longitude = Number($('longitude').value);
@@ -55,20 +55,20 @@ async function refresh() {
       const result = await request('/api/pair/poll', pairing);
       if (generation !== pairingGeneration) return;
       if (result.state === 'pending') return;
-      pairing = null; sessionStorage.removeItem('location-lab-pending');
+      pairing = null; sessionStorage.removeItem('loc2-pending');
     }
     const result = await request('/api/status');
     if (generation !== pairingGeneration) return;
     state = result;reachable = true;render();
-    window.dispatchEvent(new CustomEvent('locationlab:status',{detail:getState()}));
+    window.dispatchEvent(new CustomEvent('loc2:status',{detail:getState()}));
   } catch (error) {
     if (generation !== pairingGeneration) return;
     reachable = false;
     if (error.status === 401) { state = null;$('connection').textContent = '尚未获得配对授权';$('pairing').textContent = '请在 Mac 生成二维码，扫描后由 Mac 确认。'; }
-    else if (pairing && error.status === 403) { pairing = null;sessionStorage.removeItem('location-lab-pending');$('pairing').textContent = error.message; }
+    else if (pairing && error.status === 403) { pairing = null;sessionStorage.removeItem('loc2-pending');$('pairing').textContent = error.message; }
     else if (error.status === 403) { state = null;$('connection').textContent = '授权目标当前不可用';$('pairing').textContent = error.message; }
     else if (!state) $('connection').textContent = '无法连接 Mac，请检查两端网络。';
-    render();window.dispatchEvent(new CustomEvent('locationlab:status',{detail:getState()}));
+    render();window.dispatchEvent(new CustomEvent('loc2:status',{detail:getState()}));
   }
 }
 async function command(action) {
@@ -87,13 +87,13 @@ async function begin() {
   if (challenge) history.replaceState(null,'',location.pathname);
   try {
     if (challenge) {
-      pairing = null;state = null;reachable = false;sessionStorage.removeItem('location-lab-pending');render();
+      pairing = null;state = null;reachable = false;sessionStorage.removeItem('loc2-pending');render();
       const pollSecret = randomHex();
       const result = await request('/api/pair/request',{challenge,pollSecret,label:'手机浏览器'});
       pairing = {requestId:result.requestId,pollSecret};
-      sessionStorage.setItem('location-lab-pending',JSON.stringify(pairing));
+      sessionStorage.setItem('loc2-pending',JSON.stringify(pairing));
     } else {
-      const saved = sessionStorage.getItem('location-lab-pending');
+      const saved = sessionStorage.getItem('loc2-pending');
       if (saved) pairing = JSON.parse(saved);
     }
     if (pairing) { $('connection').textContent='等待 Mac 确认';$('pairing').textContent='请在 Mac 核对控制端请求和目标 USB 手机，点击允许。'; }
@@ -102,6 +102,6 @@ async function begin() {
 }
 $('latitude').addEventListener('input',manualDraft);$('longitude').addEventListener('input',manualDraft);
 $('apply').addEventListener('click',()=>command('apply'));$('stop').addEventListener('click',()=>command('stop'));
-window.locationLab = {setDraft,getDraft,request,getState,setMapPolicy(value) { mapPolicy = value === true; if (draft?.provider === 'apple-mapkit-js') setDraft(draft); else render(); }};
+window.loc2 = {setDraft,getDraft,request,getState,setMapPolicy(value) { mapPolicy = value === true; if (draft?.provider === 'apple-mapkit-js') setDraft(draft); else render(); }};
 window.addEventListener('hashchange',()=>{if (new URLSearchParams(location.hash.slice(1)).has('pair')) begin();});
 begin();

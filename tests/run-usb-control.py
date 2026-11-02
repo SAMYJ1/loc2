@@ -3,13 +3,13 @@
 from pathlib import Path
 import json,socket,subprocess,sys,tempfile,threading
 root=Path(__file__).resolve().parents[1];sys.path[:0]=[str(root),str(root/'tests')]
-from location_lab.native_server import NativeServer,tls_identity
-from location_lab.phone import PhoneControl
-from location_lab.session import SessionService
-from location_lab.usb_control import USBControlBridge
+from loc2.native_server import NativeServer,tls_identity
+from loc2.phone import PhoneControl
+from loc2.session import SessionService
+from loc2.usb_control import USBControlBridge
 from test_session import USBFixture
 
-with tempfile.TemporaryDirectory(prefix='ll-usb-control-') as directory:
+with tempfile.TemporaryDirectory(prefix='loc2-usb-control-') as directory:
     folder=Path(directory)
     service=SessionService(USBFixture());service.refresh_devices();control=PhoneControl(service)
     invitation=control.create_pairing()
@@ -30,7 +30,7 @@ with tempfile.TemporaryDirectory(prefix='ll-usb-control-') as directory:
         executable=folder/'probe'
         sources=['Models.swift','Coordinates.swift','Connection.swift','USBControlTunnel.swift','ComputerRegistry.swift']
         sdk=subprocess.check_output(['xcrun','--sdk','macosx','--show-sdk-path'],text=True).strip()
-        compile_result=subprocess.run(['xcrun','swiftc','-sdk',sdk,'-parse-as-library',*[str(root/'native/LocationLabMobile'/name) for name in sources],str(root/'tests/native/USBControlProbe.swift'),'-o',str(executable),'-framework','CoreLocation'],capture_output=True,text=True)
+        compile_result=subprocess.run(['xcrun','swiftc','-sdk',sdk,'-parse-as-library',*[str(root/'native/loc2-ios'/name) for name in sources],str(root/'tests/native/USBControlProbe.swift'),'-o',str(executable),'-framework','CoreLocation'],capture_output=True,text=True)
         if compile_result.returncode:print(compile_result.stderr,file=sys.stderr);raise SystemExit(compile_result.returncode)
         subprocess.run([str(executable),str(profile),str(device_port)],check=True,timeout=45)
     finally:bridge.stop();server.shutdown();server.server_close();service.shutdown()

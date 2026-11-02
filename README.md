@@ -1,4 +1,6 @@
-# Location Lab
+# Loc2
+
+统一标识、路径与本机数据迁移记录见[标识迁移](docs/identity-migration-2026-11-02.md)。
 
 个人使用的 iPhone 原生地图控制 App 与 Mac 后台定位服务。支持 USB 与无线控制／报点，连接 USB 时优先使用 USB。
 
@@ -8,7 +10,7 @@
 
 当前 WPA2/WPA3 混合网络已通过类型 3 握手、应用位置和恢复短测；需要配套且摘要匹配的本机运行时。仅 WPA3 网络尚未验收，不自动降为 WPA2。
 
-规格见 [Issue #1](https://github.com/SAMYJ1/location-lab/issues/1)，最终现场验收跟踪于 [Issue #9](https://github.com/SAMYJ1/location-lab/issues/9)。用户已确定先按既有 USB 路径开发，开发结束后统一真机验证。
+规格见 [Issue #1](https://github.com/SAMYJ1/loc2/issues/1)，最终现场验收跟踪于 [Issue #9](https://github.com/SAMYJ1/loc2/issues/9)。用户已确定先按既有 USB 路径开发，开发结束后统一真机验证。
 
 ## 早期方案记录
 
@@ -34,7 +36,7 @@
 - [最终真机验收清单](docs/acceptance.md)
 - [2026-10-29 USB 真机验证结果](docs/device-validation-2026-10-29.md)
 - [2026-10-30 原控制器开启状态复测](docs/device-validation-2026-10-30.md)
-- [2026-10-30 Location Lab 应用验收](docs/app-validation-2026-10-30.md)
+- [2026-10-30 loc2 应用验收](docs/app-validation-2026-10-30.md)
 - [外部位置间歇采用的社区与官方证据调查](docs/research/community-location-adoption-2026-10-30.md)
 - [赛银国际广场：老链路与应用附近点成功对照](docs/saiyin-validation-2026-10-30.md)
 - [隐藏模式修复与附近点验收](docs/hidden-mode-validation-2026-10-30.md)
@@ -45,7 +47,7 @@
 ```sh
 python3 -m unittest discover -s tests -v
 sh scripts/build-mac-app.sh
-open 'build/Location Lab.app'
+open 'build/Loc2.app'
 ```
 
 应用默认不启动定位会话。按本机配置说明提供隔离运行时与局域网地址后，手机才能通过二维码请求授权；只有明确应用位置才会启动 USB 会话。

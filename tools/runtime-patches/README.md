@@ -13,6 +13,6 @@ cargo build --locked --release -p livi-helperd
 
 基线文件摘要、已测试 helper 摘要与补丁摘要见 [manifest](../../docs/native-runtime-manifest-2026-11-02.json)。本机既有源码含此前的无线地址、订阅和会话修正，不保证能直接应用到任意上游版本。
 
-运行时的 `resources/driver/location-lab-capabilities.json` 必须声明 `schemaVersion: 1`、`wpa3Transition: true`，并以 `helperSHA256` 绑定实际安装的 helper；应用在启动前核对摘要。声明用于防止新应用误配旧 helper，不代替设备验收。重建后的二进制若摘要改变，应重新验证后再更新声明。
+运行时的 `resources/driver/loc2-capabilities.json` 必须声明 `schemaVersion: 1`、`wpa3Transition: true`，并以 `helperSHA256` 绑定实际安装的 helper；应用在启动前核对摘要。声明用于防止新应用误配旧 helper，不代替设备验收。重建后的二进制若摘要改变，应重新验证后再更新声明。
 
 当前已验证的是一台 iPhone、一个 WPA2/WPA3 混合接入点；仅 WPA3 模式没有放行。完整行为与限制见[验收记录](../../docs/native-app-validation-2026-10-31.md)。

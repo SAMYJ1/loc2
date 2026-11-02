@@ -5,9 +5,9 @@ import sys
 import threading
 import time
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]))
-from location_lab.session import SessionService
-from location_lab.phone import PhoneControl,PhoneServer
-from location_lab.local_host import dispatch
+from loc2.session import SessionService
+from loc2.phone import PhoneControl,PhoneServer
+from loc2.local_host import dispatch
 
 class FixtureUSB:
     def __init__(self): self.devices=['test-phone'];self.running=False

@@ -142,7 +142,7 @@ locIntegrity = 50 if positionDifference <= min(positionDiffBound, mediumBound)
 
 [HHJ 产品说明站](https://hhjpro.com/zh-tw/)和[使用指南](https://hhjpro.com/en/guide)描述 Lightning／USB-C 双接口、配套 App 选点及恢复步骤，没有公开足以核验此问题的协议实现、识别能力、筛选参数或认证身份。网站与具体硬件制造主体的关系未独立核实。另一个名为 [Remychou/HHJ-Pro](https://github.com/Remychou/HHJ-Pro) 的公开仓库，本次读取根目录只包含 38 字节 README；不能当成 HHJ 固件开源或 MFi 认证证据。
 
-当前 Location Lab 的日常路径需要 Wi-Fi 建立 CarPlay 网络会话，而部分尾插使用反馈包含关闭 Wi-Fi 的操作。这是值得做控制对照的条件差异，不是本轮已证实的唯一根因，也不应直接在当前无线链路关闭 Wi-Fi 后把断线误当成筛选器行为。若继续实测，优先在相同手机／完整 iOS build 下对照 HHJ 与 Location Lab 的 `onAccessoryNmeaReceived`、筛选开启状态、参考类型／时间／阈值、`success`／`not screened`／失败及实际位置来源；仅记录必要的脱敏字段，不需要公开认证私钥。本轮没有执行这类新设备对照。
+当前 loc2 的日常路径需要 Wi-Fi 建立 CarPlay 网络会话，而部分尾插使用反馈包含关闭 Wi-Fi 的操作。这是值得做控制对照的条件差异，不是本轮已证实的唯一根因，也不应直接在当前无线链路关闭 Wi-Fi 后把断线误当成筛选器行为。若继续实测，优先在相同手机／完整 iOS build 下对照 HHJ 与 loc2 的 `onAccessoryNmeaReceived`、筛选开启状态、参考类型／时间／阈值、`success`／`not screened`／失败及实际位置来源；仅记录必要的脱敏字段，不需要公开认证私钥。本轮没有执行这类新设备对照。
 
 ## 仍未确定的事项
 

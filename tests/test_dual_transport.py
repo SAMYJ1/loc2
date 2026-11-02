@@ -1,8 +1,8 @@
 import unittest
-from location_lab.dual_transport import DualTransportBackend
-from location_lab.session import SessionService
-from location_lab.local_host import dispatch
-from location_lab.current_network import CurrentNetwork
+from loc2.dual_transport import DualTransportBackend
+from loc2.session import SessionService
+from loc2.local_host import dispatch
+from loc2.current_network import CurrentNetwork
 from test_session import USBFixture
 
 

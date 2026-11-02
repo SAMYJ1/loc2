@@ -5,7 +5,7 @@ import {mkdtemp,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 const {chromium}=await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
-const directory=await mkdtemp(join(tmpdir(),'location-lab-auth-'));
+const directory=await mkdtemp(join(tmpdir(),'loc2-auth-'));
 async function start(port=0) {
   const child=spawn(process.env.PYTHON || 'python3',['tests/fixtures/persistent_phone_server.py','--state-dir',directory,'--port',String(port)],{stdio:['pipe','pipe','inherit']});
   const pending=[],lines=[];
@@ -25,7 +25,7 @@ try {
   await page.goto(fixture.ready.pairingURL);
   await page.getByText('等待 Mac 确认',{exact:true}).waitFor();await fixture.command('approve');
   await page.getByText('配对授权已确认。可将此页面添加到主屏幕。',{exact:true}).waitFor();
-  const cookie=(await context.cookies()).find(item=>item.name==='location_lab_control');
+  const cookie=(await context.cookies()).find(item=>item.name==='loc2_control');
   assert.ok(cookie.expires>Date.now()/1000+86400);
   await page.getByLabel('WGS84 纬度').fill('31.23');await page.getByLabel('WGS84 经度').fill('121.47');
   await page.getByRole('button',{name:'应用位置',exact:true}).click();
@@ -45,7 +45,7 @@ try {
   await fixture.command('revoke');
   await page.getByText('尚未获得配对授权',{exact:true}).waitFor();
   assert.equal(await page.getByRole('button',{name:'应用位置',exact:true}).isDisabled(),true);
-  assert.equal((await context.cookies()).some(item=>item.name==='location_lab_control'),false);
+  assert.equal((await context.cookies()).some(item=>item.name==='loc2_control'),false);
   const repair=await fixture.command('pair');await page.goto(repair.phone.pairingURL);
   await page.getByText('等待 Mac 确认',{exact:true}).waitFor();await fixture.command('approve');
   await page.getByText('配对授权已确认。可将此页面添加到主屏幕。',{exact:true}).waitFor();

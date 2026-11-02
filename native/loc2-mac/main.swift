@@ -7,7 +7,8 @@ import Darwin
 final class LocationApp: NSObject, NSApplicationDelegate {
     private var item: NSStatusItem!
     private var menuBarIcon: MenuBarStatusIcon?
-    private let menuStatus = NSMenuItem(title:"Location Lab · 正在启动",action:nil,keyEquivalent:"")
+    private var statusMenuController: MenuBarStatusMenu?
+    private let menuStatus = NSMenuItem(title:"Loc2 · 正在启动",action:nil,keyEquivalent:"")
     private var window: NSWindow!
     private var pairingWindow: NSWindow!
     private let statusText = NSTextField(wrappingLabelWithString: "正在启动本机会话服务…")
@@ -64,7 +65,7 @@ final class LocationApp: NSObject, NSApplicationDelegate {
         menu.addItem(.separator())
         menu.addItem(withTitle: "退出", action: #selector(quit), keyEquivalent: "q")
         for entry in menu.items { entry.target = self }
-        item.menu = menu
+        statusMenuController = MenuBarStatusMenu(menu:menu,statusItem:item)
         makeWindow()
         startHost()
         if ProcessInfo.processInfo.arguments.contains("--pair") { DispatchQueue.main.asyncAfter(deadline:.now()+2) { self.createPairing() } }
@@ -78,7 +79,7 @@ final class LocationApp: NSObject, NSApplicationDelegate {
 
     private func makeWindow() {
         window = NSWindow(contentRect: NSRect(x: 0,y: 0,width: 520,height: 610), styleMask: [.titled,.closable,.miniaturizable], backing: .buffered, defer: false)
-        window.title = "Location Lab"
+        window.title = "Loc2"
         window.isReleasedWhenClosed = false
         window.center()
         let content = NSStackView()
@@ -155,8 +156,8 @@ final class LocationApp: NSObject, NSApplicationDelegate {
     private func startHost() {
         let task = Process()
         let resources = Bundle.main.resourceURL ?? URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-        task.executableURL = URL(fileURLWithPath: ProcessInfo.processInfo.environment["LOCATION_LAB_PYTHON"] ?? "/usr/bin/python3")
-        task.arguments = ["-m","location_lab.local_host"]
+        task.executableURL = URL(fileURLWithPath: ProcessInfo.processInfo.environment["LOC2_PYTHON"] ?? "/usr/bin/python3")
+        task.arguments = ["-m","loc2.local_host"]
         task.currentDirectoryURL = resources
         var environment = ProcessInfo.processInfo.environment
         environment["PYTHONPATH"] = resources.path
@@ -220,8 +221,14 @@ final class LocationApp: NSObject, NSApplicationDelegate {
     }
 
     private func updateMenuBar(state: String,description: String) {
-        menuBarIcon?.update(state:state,description:description)
-        menuStatus.title = "Location Lab · \(description)"
+        let update = { [weak self] in
+            guard let self else { return }
+            self.menuBarIcon?.update(state:state,description:description)
+            let title = "Loc2 · \(description)"
+            if self.menuStatus.title != title { self.menuStatus.title = title }
+        }
+        if let statusMenuController { statusMenuController.update(update) }
+        else { update() }
     }
 
     private func render() {
@@ -254,7 +261,7 @@ final class LocationApp: NSObject, NSApplicationDelegate {
         if advertisement == nil, let endpoint = phone["origin"] as? String,
            let url = URL(string: endpoint), url.scheme == "https", let port = url.port,
            let fingerprint = phone["serverFingerprint"] as? String {
-            let service = NetService(domain: "local.", type: "_locationlab._tcp.", name: "Location Lab", port: Int32(port))
+            let service = NetService(domain: "local.", type: "_loc2._tcp.", name: "Loc2", port: Int32(port))
             service.setTXTRecord(NetService.data(fromTXTRecord: ["fingerprint":Data(fingerprint.utf8)]))
             service.publish(); advertisement = service
         }
@@ -344,7 +351,7 @@ final class LocationApp: NSObject, NSApplicationDelegate {
     @objc private func updatePhone() {
         guard state["sessionId"] == nil || state["sessionId"] is NSNull else { statusText.stringValue = "请先恢复位置，再更新手机 App";showDetails();return }
         guard installer == nil else { showDetails();return }
-        let configURL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".config/location-lab/config.json")
+        let configURL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".config/loc2/config.json")
         guard let data = try? Data(contentsOf:configURL),let config = (try? JSONSerialization.jsonObject(with:data)) as? [String:Any],
               let mobile = config["mobile"] as? [String:Any],let root = mobile["projectRoot"] as? String else {
             statusText.stringValue = "尚未配置本机手机安装环境";showDetails();return

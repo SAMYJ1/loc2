@@ -47,6 +47,6 @@
 
 ## 产品边界
 
-本次验证的是独立实验运行时的隐藏无线链路，不等于 Location Lab 应用已提供 Wi-Fi 连接选项。当前 `location_lab/backend.py` 仍按 USB 枚举设备并设置 wireless=False。Wi-Fi 模式的应用集成、自动重连、锁屏及长期运行另需实现和验收。位置通道仍包含蓝牙，不是纯 Wi-Fi 报点。
+本次验证的是独立实验运行时的隐藏无线链路，不等于 loc2 应用已提供 Wi-Fi 连接选项。当前 `loc2/backend.py` 仍按 USB 枚举设备并设置 wireless=False。Wi-Fi 模式的应用集成、自动重连、锁屏及长期运行另需实现和验收。位置通道仍包含蓝牙，不是纯 Wi-Fi 报点。
 
 本机证据：调研目录 `work/xh-viw1m8kq`（隐藏覆盖、首轮）与 `work/xh2-ga4b0ajt`（同代码重连）；目录位于 `/Users/eugene/Documents/Codex/2026-10-15/bang-w`。认证材料、设备标识、网络凭据与原始日志不进入仓库。

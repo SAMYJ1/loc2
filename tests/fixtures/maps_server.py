@@ -6,9 +6,9 @@ import sys
 import threading
 import time
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]))
-from location_lab.session import SessionService
-from location_lab.phone import PhoneControl,PhoneServer
-from location_lab.local_host import dispatch
+from loc2.session import SessionService
+from loc2.phone import PhoneControl,PhoneServer
+from loc2.local_host import dispatch
 
 class FixtureUSB:
     def __init__(self): self.devices=['test-phone'];self.running=False
@@ -19,7 +19,7 @@ class FixtureUSB:
     def stop(self): self.running=False
 
 usb=FixtureUSB();service=SessionService(usb);service.refresh_devices()
-control=PhoneControl(service,maps_config=json.loads(os.environ.get('LOCATION_LAB_TEST_MAPS','{}')));server=PhoneServer(('127.0.0.1',0),control,'127.0.0.1')
+control=PhoneControl(service,maps_config=json.loads(os.environ.get('LOC2_TEST_MAPS','{}')));server=PhoneServer(('127.0.0.1',0),control,'127.0.0.1')
 threading.Thread(target=server.serve_forever,daemon=True).start()
 control.create_pairing()
 print(json.dumps(control.local_status()),flush=True)

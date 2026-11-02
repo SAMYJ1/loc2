@@ -4,8 +4,8 @@ from pathlib import Path
 import tempfile
 import time
 import unittest
-from location_lab.backend import USBBackend
-from location_lab.session import SessionService
+from loc2.backend import USBBackend
+from loc2.session import SessionService
 
 RECEIVER = '''#!/usr/bin/python3
 import base64,json,os,socket,sys,threading
@@ -48,7 +48,7 @@ class RuntimeBoundaryTests(unittest.TestCase):
                 path=root/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text('fixture');path.chmod(0o700)
             backend=USBBackend(root)
             backend.settings=lambda device:dict(wireless=True,wifiSecurity=4)
-            with patch('location_lab.backend.subprocess.Popen',side_effect=AssertionError('receiver must not launch')) as launch:
+            with patch('loc2.backend.subprocess.Popen',side_effect=AssertionError('receiver must not launch')) as launch:
                 with self.assertRaisesRegex(ValueError,'WPA3'):
                     backend.start('fixture','fixture-phone',lambda *a,**kw:None)
                 launch.assert_not_called()

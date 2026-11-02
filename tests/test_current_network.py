@@ -1,6 +1,6 @@
 import unittest
-from location_lab.current_network import CurrentNetwork
-from location_lab.session import SessionService
+from loc2.current_network import CurrentNetwork
+from loc2.session import SessionService
 from test_session import USBFixture
 
 class CurrentNetworkTests(unittest.TestCase):
@@ -54,7 +54,7 @@ class CurrentNetworkTests(unittest.TestCase):
 
     def test_wpa3_is_rejected_before_accepting_a_target_or_starting_receiver(self):
         from unittest.mock import patch
-        from location_lab.wireless import WirelessBackend
+        from loc2.wireless import WirelessBackend
         self.ready()
         wpa3=dict(self.meta,wifiSecurity=4)
         self.network.update_metadata(wpa3);self.network.prepare()

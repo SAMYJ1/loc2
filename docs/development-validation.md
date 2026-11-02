@@ -1,6 +1,6 @@
 # 开发检查记录
 
-2026-10-29。集成基线为 `eb44200`；本记录覆盖该基线的最终审查修复。真实 USB、Safari、实际局域网和 Apple 地图坐标校准仍由 [Issue #9](https://github.com/SAMYJ1/location-lab/issues/9) 验收。
+2026-10-29。集成基线为 `eb44200`；本记录覆盖该基线的最终审查修复。真实 USB、Safari、实际局域网和 Apple 地图坐标校准仍由 [Issue #9](https://github.com/SAMYJ1/loc2/issues/9) 验收。
 
 ## 已修复的审查问题
 

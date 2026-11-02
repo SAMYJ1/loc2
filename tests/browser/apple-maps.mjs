@@ -17,7 +17,7 @@ const sdkFixture = `(() => {
  };
 })();`;
 async function scenario(config, sdkMode='fixture') {
- const fixture=spawn(process.env.PYTHON || 'python3',['tests/fixtures/maps_server.py'],{stdio:['pipe','pipe','inherit'],env:{...process.env,LOCATION_LAB_TEST_MAPS:JSON.stringify(config)}});
+ const fixture=spawn(process.env.PYTHON || 'python3',['tests/fixtures/maps_server.py'],{stdio:['pipe','pipe','inherit'],env:{...process.env,LOC2_TEST_MAPS:JSON.stringify(config)}});
  const pending=[],lines=[],reader=createInterface({input:fixture.stdout});
  reader.on('line',line=>{const value=JSON.parse(line);if(pending.length)pending.shift()(value);else lines.push(value);});
  const next=()=>lines.length ? Promise.resolve(lines.shift()) : new Promise(resolve=>pending.push(resolve));
@@ -38,7 +38,7 @@ async function scenario(config, sdkMode='fixture') {
     await page.getByLabel('搜索地点').fill('synthetic');await page.getByRole('button',{name:'搜索',exact:true}).click();
     await page.getByRole('button',{name:'Synthetic known point fixture',exact:true}).click();
     assert.equal((await command('snapshot')).running,false,'selection must not apply');
-    const draft=await page.evaluate(()=>window.locationLab.getDraft());
+    const draft=await page.evaluate(()=>window.loc2.getDraft());
     assert.equal(draft.provider,'apple-mapkit-js');assert.equal(draft.selectionMethod,'search');
     if (config.validationEvidence) {
      assert.deepEqual(draft.normalizedWGS84,{latitude:31.23,longitude:121.47});
@@ -47,7 +47,7 @@ async function scenario(config, sdkMode='fixture') {
      assert.equal((await command('snapshot')).status.target.provider,'apple-mapkit-js');
      await page.getByRole('button',{name:'Synthetic map point',exact:true}).click();
      assert.equal((await command('snapshot')).status.target.latitude,31.23,'map tap only changes draft');
-     assert.equal((await page.evaluate(()=>window.locationLab.getDraft())).latitude,32);
+     assert.equal((await page.evaluate(()=>window.loc2.getDraft())).latitude,32);
     } else {
      assert.equal(draft.inputCRS,'unverified-mapkit');assert.equal(draft.normalizedWGS84,null);
      assert.equal(await page.locator('#draft-source').textContent(),'Apple 地图 · 待校准');

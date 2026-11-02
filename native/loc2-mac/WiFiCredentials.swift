@@ -27,7 +27,7 @@ final class WiFiCredentials {
 final class KeychainWiFiStorage: WiFiCredentialStorage {
     private static let interactionLock = NSLock()
     private let service: String
-    init(service: String = "local.location-lab.wifi-credentials") { self.service = service }
+    init(service: String = "local.loc2.wifi-credentials") { self.service = service }
 
     private func withInteraction<T>(_ interactive: Bool, _ body: () throws -> T) throws -> T {
         Self.interactionLock.lock()
@@ -100,7 +100,7 @@ final class KeychainWiFiStorage: WiFiCredentialStorage {
             let insert: [String:Any] = [kSecClass as String:kSecClassGenericPassword,
                                        kSecAttrService as String:service,kSecAttrAccount as String:ssid,
                                        kSecUseKeychain as String:keychain,kSecValueData as String:data,
-                                       kSecAttrLabel as String:"Location Lab · Wi-Fi"]
+                                       kSecAttrLabel as String:"Loc2 · Wi-Fi"]
             try check(SecItemAdd(insert as CFDictionary,nil))
         }
     }

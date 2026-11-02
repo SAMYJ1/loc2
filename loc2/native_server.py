@@ -23,7 +23,7 @@ def tls_identity(directory,host,address):
     cert,key=directory/'server.cert.pem',directory/'server.key.pem'
     if cert.exists()!=key.exists(): raise ValueError('服务身份不完整，不能静默更换已配对身份')
     if not cert.exists():
-        config='[req]\ndistinguished_name=dn\nx509_extensions=ext\nprompt=no\n[dn]\nCN=Location Lab Local\n[ext]\nsubjectAltName=DNS:'+host+',IP:'+address+'\nbasicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature,keyEncipherment\nextendedKeyUsage=serverAuth\n'
+        config='[req]\ndistinguished_name=dn\nx509_extensions=ext\nprompt=no\n[dn]\nCN=loc2 Local\n[ext]\nsubjectAltName=DNS:'+host+',IP:'+address+'\nbasicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature,keyEncipherment\nextendedKeyUsage=serverAuth\n'
         descriptor,name=tempfile.mkstemp(dir=directory,prefix='.tls-')
         try:
             with os.fdopen(descriptor,'w') as file: file.write(config)
@@ -80,12 +80,12 @@ class NativeServer(ThreadingHTTPServer):
         if challenge and challenge['expires']>self.control.clock():
             invitation=dict(version=1,endpoint=self.origin,fingerprint=self.fingerprint,challenge=challenge['challenge'])
             encoded=base64.urlsafe_b64encode(json.dumps(invitation,separators=(',',':')).encode()).decode().rstrip('=')
-            value['pairingURL']='locationlab://pair?data='+encoded
+            value['pairingURL']='loc2://pair?data='+encoded
         return value
 
 
 class NativeHandler(BaseHTTPRequestHandler):
-    server_version='LocationLab'
+    server_version='Loc2'
     def log_message(self,*args): pass
     def do_GET(self): self.handle_api(False)
     def do_POST(self): self.handle_api(True)

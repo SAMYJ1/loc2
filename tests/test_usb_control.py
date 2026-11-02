@@ -1,6 +1,6 @@
 import plistlib,socket,struct,unittest
 from unittest.mock import patch
-from location_lab.backend import usb_connect
+from loc2.backend import usb_connect
 
 
 class MuxSocket:
@@ -23,17 +23,17 @@ class USBControlTests(unittest.TestCase):
         dict(DeviceID=11,Properties=dict(SerialNumber='selected',ConnectionType='USB'))]}
     def test_connect_uses_selected_physical_usb_device_and_network_order_port(self):
         lookup=MuxSocket(self.devices());stream=MuxSocket({'Number':0})
-        with patch('location_lab.backend.socket.socket',side_effect=[lookup,stream]):
+        with patch('loc2.backend.socket.socket',side_effect=[lookup,stream]):
             self.assertIs(usb_connect('selected',32145),stream)
         body=plistlib.loads(stream.sent[0][16:])
         self.assertEqual(body['DeviceID'],11);self.assertEqual(body['PortNumber'],socket.htons(32145))
         self.assertTrue(lookup.closed);self.assertFalse(stream.closed)
     def test_network_record_is_never_a_usb_substitute(self):
         data=self.devices();data['DeviceList']=data['DeviceList'][:2]
-        with patch('location_lab.backend.socket.socket',return_value=MuxSocket(data)):
+        with patch('loc2.backend.socket.socket',return_value=MuxSocket(data)):
             with self.assertRaises(ConnectionError):usb_connect('selected',32145)
     def test_rejected_connection_closes_socket(self):
         lookup=MuxSocket(self.devices());stream=MuxSocket({'Number':3})
-        with patch('location_lab.backend.socket.socket',side_effect=[lookup,stream]):
+        with patch('loc2.backend.socket.socket',side_effect=[lookup,stream]):
             with self.assertRaises(ConnectionError):usb_connect('selected',32145)
         self.assertTrue(stream.closed)

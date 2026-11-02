@@ -71,9 +71,9 @@ def dispatch(service, request, phone=None):
 
 
 def main():
-    parser=argparse.ArgumentParser(description='Location Lab private menu host; no USB until explicit apply')
+    parser=argparse.ArgumentParser(description='loc2 private menu host; no USB until explicit apply')
     parser.add_argument('--runtime',type=Path)
-    parser.add_argument('--config',type=Path,default=Path.home()/'.config/location-lab/config.json')
+    parser.add_argument('--config',type=Path,default=Path.home()/'.config/loc2/config.json')
     args=parser.parse_args()
     config=runtime_config(args.config)
     runtime=args.runtime or config.get('runtime')

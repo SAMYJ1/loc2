@@ -3,14 +3,14 @@ from pathlib import Path
 import tempfile
 import time
 import unittest
-from location_lab.wireless import WirelessBackend,network_config
-from location_lab.session import SessionService
+from loc2.wireless import WirelessBackend,network_config
+from loc2.session import SessionService
 from test_runtime_boundary import RECEIVER
 
 class WirelessTests(unittest.TestCase):
     def test_verified_transition_reaches_receiver_without_legacy_wifi_sharing(self):
         import hashlib
-        from location_lab.current_network import CurrentNetwork
+        from loc2.current_network import CurrentNetwork
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder)
             executable=root/'resources/runtime/MacPlayReceiver.app/Contents/MacOS/MacPlayReceiver';executable.parent.mkdir(parents=True)
@@ -20,7 +20,7 @@ class WirelessTests(unittest.TestCase):
             for name in ('resources/engine/main.js','data/authentication/identity.pk8','data/authentication/certificate.p7b','data/cp/macplay-v3/identity.json'):
                 p=root/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_text('fixture')
             driver=root/'resources/driver';driver.mkdir();helper=driver/'livi-helperd';helper.write_bytes(b'transition-fixture')
-            (driver/'location-lab-capabilities.json').write_text(json.dumps(dict(schemaVersion=1,wpa3Transition=True,
+            (driver/'loc2-capabilities.json').write_text(json.dumps(dict(schemaVersion=1,wpa3Transition=True,
                 helperSHA256=hashlib.sha256(helper.read_bytes()).hexdigest())))
             requests=[];network=CurrentNetwork(requests.append,allow_wpa3_transition=True)
             metadata=dict(ssid='fixture',channel=40,wifiInterface='en0',accessPointMAC='00:11:22:33:44:55',wifiSecurity=4)
@@ -81,8 +81,8 @@ class WirelessTests(unittest.TestCase):
                 with self.subTest(mode=mode),self.assertRaisesRegex(ValueError,'WPA3'):network_config(p)
 
     def test_stop_marker_is_bound_to_one_run_and_cannot_recreate_deleted_run(self):
-        from location_lab.cli import request_stop
-        with tempfile.TemporaryDirectory(prefix='ll-',dir='/tmp') as folder:
+        from loc2.cli import request_stop
+        with tempfile.TemporaryDirectory(prefix='loc2-',dir='/tmp') as folder:
             root=Path(folder)
             snapshot=dict(sessionActive=True,stopFile=str(root/'STOP'))
             self.assertTrue(request_stop(snapshot));self.assertTrue((root/'STOP').exists())
@@ -90,12 +90,12 @@ class WirelessTests(unittest.TestCase):
 
     def test_stop_is_invisible_until_serialization_finishes(self):
         from unittest.mock import patch
-        from location_lab.cli import request_stop
-        with tempfile.TemporaryDirectory(prefix='ll-',dir='/tmp') as folder:
+        from loc2.cli import request_stop
+        with tempfile.TemporaryDirectory(prefix='loc2-',dir='/tmp') as folder:
             root=Path(folder);snapshot=dict(sessionActive=True,stopFile=str(root/'STOP'))
             original=json.dump
             def write(value,file):
                 self.assertFalse((root/'STOP').exists())
                 return original(value,file)
-            with patch('location_lab.cli.json.dump',side_effect=write):request_stop(snapshot)
+            with patch('loc2.cli.json.dump',side_effect=write):request_stop(snapshot)
             self.assertIsInstance(json.loads((root/'STOP').read_text()),dict)

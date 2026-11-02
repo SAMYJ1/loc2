@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from tools.usb_validation.prepare import prepare as prepare_hidden
 
-MARKER='// Location Lab: use interface-name IPv6 zones and fail-closed target discovery.\n'
+MARKER='// loc2: use interface-name IPv6 zones and fail-closed target discovery.\n'
 
 
 def patch_discovery(source):

@@ -3,7 +3,7 @@ import tempfile
 from pathlib import Path
 import unittest
 import test_phone
-from location_lab.phone import PhoneControl
+from loc2.phone import PhoneControl
 
 class FavoritesTests(unittest.TestCase):
     request=test_phone.PhoneTests.request

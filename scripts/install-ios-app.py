@@ -3,7 +3,7 @@
 import argparse,json,os,re,signal,subprocess,sys,time
 from pathlib import Path
 
-parser=argparse.ArgumentParser();parser.add_argument('--config',type=Path,default=Path.home()/'.config/location-lab/config.json');args=parser.parse_args()
+parser=argparse.ArgumentParser();parser.add_argument('--config',type=Path,default=Path.home()/'.config/loc2/config.json');args=parser.parse_args()
 current=None
 
 def emit(stage,ok=True):print(json.dumps(dict(stage=stage,ok=ok),ensure_ascii=False),flush=True)
@@ -32,10 +32,10 @@ try:
     fd=os.open(log_path,os.O_WRONLY|os.O_CREAT|os.O_TRUNC|os.O_NOFOLLOW,0o600);os.fchmod(fd,0o600)
     with os.fdopen(fd,'w') as log:
         commands=[('正在构建并更新开发签名',['sh',str(project/'scripts/build-ios-app.sh'),'device'],600),
-                  ('正在安装到已绑定的 iPhone',['xcrun','devicectl','device','install','app','--device',device,str(project/'build/ios-device/Build/Products/Debug-iphoneos/Location Lab.app')],120)]
+                  ('正在安装到已绑定的 iPhone',['xcrun','devicectl','device','install','app','--device',device,str(project/'build/ios-device/Build/Products/Debug-iphoneos/Loc2.app')],120)]
         for stage,command,timeout in commands:
             inactive(config);emit(stage)
-            current=subprocess.Popen(command,cwd=project,env=dict(os.environ,LOCATION_LAB_TEAM=team),stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
+            current=subprocess.Popen(command,cwd=project,env=dict(os.environ,LOC2_TEAM=team),stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
             try:code=current.wait(timeout=timeout)
             except subprocess.TimeoutExpired:stop_child();raise ValueError('更新超时，请确认手机解锁、同网并在 Xcode 登录')
             if code:raise ValueError('更新未完成，请在 Mac 查看安装诊断，确认手机连接及开发者账号')

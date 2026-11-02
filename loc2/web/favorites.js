@@ -1,7 +1,7 @@
 /* Favorites live on the Mac. Selecting one only updates the draft. */
 (() => {
   'use strict';
-  const api = window.locationLab;
+  const api = window.loc2;
   const container = document.createElement('section');
   container.className = 'favorites';
   container.innerHTML = '<h3>常用点</h3><p class="secondary">保存在 Mac，选择后仍需明确应用。</p><label>收藏名称<input id="favorite-name" maxlength="80" placeholder="为当前草稿命名"></label><button id="favorite-save" class="secondary-button" disabled>收藏当前草稿</button><p id="favorite-message" class="secondary" role="status"></p><ul id="favorite-list"></ul>';
@@ -48,7 +48,7 @@
   }
   name.addEventListener('input',updateSave);
   save.addEventListener('click',()=>mutate('add',{name:name.value.trim(),point:api.getDraft()}));
-  window.addEventListener('locationlab:draft',updateSave);
-  window.addEventListener('locationlab:status',()=>load());
+  window.addEventListener('loc2:draft',updateSave);
+  window.addEventListener('loc2:status',()=>load());
   setInterval(()=>load(true),5000);load();
 })();

@@ -3,9 +3,9 @@ import json
 import threading
 import time
 import unittest
-from location_lab.session import SessionService
+from loc2.session import SessionService
 from test_session import USBFixture
-from location_lab.phone import PhoneControl, PhoneServer
+from loc2.phone import PhoneControl, PhoneServer
 
 class PhoneTests(unittest.TestCase):
     def setUp(self):
@@ -92,7 +92,7 @@ class PhoneTests(unittest.TestCase):
         challenge=self.control.create_pairing()['challenge'];now[0]+=121
         self.assertEqual(self.request('/api/pair/request',dict(challenge=challenge,pollSecret='e'*64))[0],403)
         self.assertEqual(self.request('/api/pair/approve',{})[0],404)
-        self.assertEqual(self.request('/../location_lab/phone.py')[0],404)
+        self.assertEqual(self.request('/../loc2/phone.py')[0],404)
     def test_bound_controller_cannot_read_another_phone_session(self):
         self.pair()
         self.usb.devices=['other-phone'];self.service.refresh_devices()

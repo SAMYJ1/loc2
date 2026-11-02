@@ -14,7 +14,7 @@ from .favorites import FavoritesStore
 
 from .maps import public_settings, validate_map_point, validate_native_point
 
-COOKIE = 'location_lab_control'
+COOKIE = 'loc2_control'
 WEB = Path(__file__).with_name('web')
 
 
@@ -209,7 +209,7 @@ class PhoneServer(ThreadingHTTPServer):
 
 
 class PhoneHandler(BaseHTTPRequestHandler):
-    server_version='LocationLab'
+    server_version='Loc2'
     def setup(self):
         super().setup();self.connection.settimeout(5)
     def log_message(self,*args): pass

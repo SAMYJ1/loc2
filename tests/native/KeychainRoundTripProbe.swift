@@ -5,7 +5,7 @@ import Security
     static func main() throws {
         let args = CommandLine.arguments
         precondition(args.count == 3 && UUID(uuidString:args[2]) != nil)
-        let service = "local.location-lab.tests." + args[2]
+        let service = "local.loc2.tests." + args[2]
         let storage = KeychainWiFiStorage(service:service)
         switch args[1] {
         case "write": try storage.savePassword("not-a-real-credential",for:"fixture-network")

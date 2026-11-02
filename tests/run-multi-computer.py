@@ -3,10 +3,10 @@
 from pathlib import Path
 import json,socket,subprocess,sys,tempfile,threading,time
 root=Path(__file__).resolve().parents[1];sys.path[:0]=[str(root),str(root/'tests')]
-from location_lab.native_server import NativeServer,NativeHandler
-from location_lab.phone import PhoneControl
-from location_lab.session import SessionService
-from location_lab.usb_control import USBControlBridge
+from loc2.native_server import NativeServer,NativeHandler
+from loc2.phone import PhoneControl
+from loc2.session import SessionService
+from loc2.usb_control import USBControlBridge
 from test_session import USBFixture
 
 class RecordingHandler(NativeHandler):
@@ -16,7 +16,7 @@ class RecordingHandler(NativeHandler):
             self.server.tokens.append(self.headers.get('Authorization'))
         super().handle_api(post)
 
-with tempfile.TemporaryDirectory(prefix='ll-multi-computer-') as directory:
+with tempfile.TemporaryDirectory(prefix='loc2-multi-computer-') as directory:
     folder=Path(directory);servers=[];profiles=[];services=[];a_off=threading.Event()
     for label in ('a','b'):
         service=SessionService(USBFixture());service.refresh_devices();control=PhoneControl(service)
@@ -49,7 +49,7 @@ with tempfile.TemporaryDirectory(prefix='ll-multi-computer-') as directory:
         sdk=subprocess.check_output(['xcrun','--sdk','macosx','--show-sdk-path'],text=True).strip()
         for probe in ('ComputerRegistryProbe','MultiComputerProbe'):
             executable=folder/probe
-            command=['xcrun','swiftc','-sdk',sdk,'-parse-as-library',*[str(root/'native/LocationLabMobile'/n) for n in sources],str(root/f'tests/native/{probe}.swift'),'-o',str(executable),'-framework','CoreLocation']
+            command=['xcrun','swiftc','-sdk',sdk,'-parse-as-library',*[str(root/'native/loc2-ios'/n) for n in sources],str(root/f'tests/native/{probe}.swift'),'-o',str(executable),'-framework','CoreLocation']
             built=subprocess.run(command,capture_output=True,text=True)
             if built.returncode:print(built.stderr);raise SystemExit(built.returncode)
             subprocess.run([str(executable),str(folder),str(port)],check=True,timeout=45)

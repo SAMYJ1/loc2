@@ -1,6 +1,6 @@
 # 原生 App 实现与当前验收状态
 
-更新：2026-10-31。对应 [Issue #10](https://github.com/SAMYJ1/location-lab/issues/10)。代码和安装均已推进，但新网络的无线建连与两小时验收尚未通过，不能将本文件视为整体验收完成。
+更新：2026-10-31。对应 [Issue #10](https://github.com/SAMYJ1/loc2/issues/10)。代码和安装均已推进，但新网络的无线建连与两小时验收尚未通过，不能将本文件视为整体验收完成。
 
 ## 已实现
 
@@ -30,7 +30,7 @@
 - 本地接受0组，位置消息入队0条，视频解码0帧。
 - 三分钟连接时限到达后结束，接收器、helper、蓝牙桥均退出。
 - 两分钟报点计时未开始；两小时长测也未开始，按用户要求延期。
-- Mac 系统设置中 Location Lab 的本地网络权限已只读核对为开启，没有修改其他应用权限。
+- Mac 系统设置中 loc2 的本地网络权限已只读核对为开启，没有修改其他应用权限。
 
 当前新网络失败仍需后续真机验证；不能归因于用户没有反复授权，也不能仅凭这一轮断言 WPA3 是唯一原因。
 
@@ -73,7 +73,7 @@ IPv6 修正使用真实运行时的 discovery 模块进行离线回归：修正�
 
 ## 2026-11-01：网络初始化与后续免交互读取
 
-用户报告每次连接前出现“Location Lab 想要进行更改”的管理员密码框，要求改为初次初始化确认、后续复用。
+用户报告每次连接前出现“loc2 想要进行更改”的管理员密码框，要求改为初次初始化确认、后续复用。
 
 旧实现重启后重新读取系统 `AirPort` 凭据，只有内存缓存，并使用 `kSecUseAuthenticationUIFail` 抑制弹窗。该参数不能可靠抑制文件式钥匙串的交互；[Chromium 的对应兼容实现](https://chromium.googlesource.com/chromium/src/crypto/+/refs/heads/main/apple/scoped_keychain_user_interaction_allowed.cc)明确记录了这一限制。
 
@@ -153,17 +153,9 @@ IPv6 修正使用真实运行时的 discovery 模块进行离线回归：修正�
 
 目前通过的是上述短流程，不扩大为远距离目标必然采用、首次纯 USB 配对或两小时持续运行已验收。
 
-## 2026-11-02：应用更名为 toAnywhere（历史记录，已恢复原名）
+## 2026-11-02：早期命名调整（归档）
 
-按用户要求，将 iPhone 和 Mac 的显示名称、应用包名称、Mac 菜单栏／窗口、手机提示及新配对标签更新为 `toAnywhere`。保留原 bundle identifiers、URL scheme、Bonjour 服务类型、数据目录和钥匙串服务名，以延续配对、收藏与网络授权。Mac 新旧包的 designated requirement 核对一致，旧包移入本机私有诊断备份，新包为 `build/toAnywhere.app`。
-
-新导出的导航快捷指令名称为“toAnywhere 定位服务”；已配置的手机默认仍调用此前导入的“Location Lab 定位服务”，无需用户重新导入，主动重新配置后才切换到新名称。两端构建和手机覆盖安装已完成，没有启动定位会话。
-
-### 项目与仓库同步更名
-
-2026-11-02，GitHub 私有仓库更名为 `SAMYJ1/toAnywhere`，本地 Git origin 已同步；实体工作目录迁为 `/Users/eugene/code/toAnywhere`。迁移前后核对全部 125 个已跟踪／未忽略源码文件的内容哈希和 Git HEAD，一致后才进行名称、链接及构建入口更新；未提交或推送本地工作。
-
-Xcode 工程、target 和 scheme 统一为 `toAnywhere`，工程位于 `native/LocationLabMobile/toAnywhere.xcodeproj`。手机更新配置的 `mobile.projectRoot` 已指向新目录，新的工程构建及 Python 78 项测试通过。保留旧根目录路径到新目录的符号链接，供历史聊天的工作目录兼容；应用 bundle identifiers、数据目录、钥匙串标识继续保留兼容值。
+此前曾调整显示名和工程路径，并保留当时的应用身份。原始命名记录保存在迁移备份；本文当前使用 loc2 名称，签名标识的完整迁移见最新记录。
 
 ## 2026-11-02：多台 Mac 的自动连接
 
@@ -228,12 +220,6 @@ Mac 应用已更新并重启，签名 designated requirement 与更新前一致�
 
 结论仅覆盖当前 WPA2/WPA3 混合网络的短流程。未采集 802.11 层最终 AKM 协商，不能将类型 3 等同于每次无线链路都强制 SAE；仅 WPA3 网络和两小时长测仍未验收。没有修改路由器配置，没有执行此前等待确认的强制类型 2 兼容测试，未提交或推送代码。
 
-## 2026-11-02：项目名称恢复为 Location Lab
+## 2026-11-02：此前的显示名调整
 
-按用户要求，将两端 App 显示名称、菜单／提示、新配对标签、快捷指令导出名称和构建产物统一恢复为 `Location Lab`。Xcode 工程与 scheme 为 `LocationLab`，手机产物为 `Location Lab.app`；Mac 可执行文件为 `LocationLab`。
-
-GitHub 同一私有仓库恢复为 `SAMYJ1/location-lab`，仓库 ID、提交、Issue 和 PR 历史保留，origin 已更新。实体目录恢复为 `/Users/eugene/code/location-lab`，原路径仅作为兼容符号链接保留；迁移前后 137 个源码文件哈希一致。本机配置只更新了 `mobile.projectRoot`，运行时和其他配置未改变。
-
-两端构建及 iPhone 覆盖安装通过，Mac 已以 `Location Lab` 启动。Mac designated requirement、iPhone application identifier 和 keychain access groups 与更新前一致；bundle identifiers、数据目录、URL scheme、Bonjour 类型及钥匙串服务名保持原值。已保存的快捷指令名称继续从原用户设置读取，不强制重配。
-
-此前更名段落中的旧名称与路径是历史证据；当前运行代码中仅保留旧 Mac 构建产物的签名兼容查找。此次没有启动定位会话。
+本节原始的显示名迁移记录已归档到本机迁移备份。其构建与安装验证不等同于本次新签名身份的迁移验收，当前状态见最新的 loc2 迁移记录。

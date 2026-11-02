@@ -1,4 +1,4 @@
-Location Lab uses coordinate transform formulas adapted from googollee/eviltransform.
+Loc2 uses coordinate transform formulas adapted from googollee/eviltransform.
 https://github.com/googollee/eviltransform
 
 Copyright (c) 2015, Googol Lee <i@googol.im>, @gutenye, @xingxing, @bewantbe,

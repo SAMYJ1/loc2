@@ -9,7 +9,7 @@ def supports_wpa3_transition(workspace):
     if not workspace:return False
     driver=Path(workspace).expanduser()/'resources/driver'
     try:
-        manifest=driver/'location-lab-capabilities.json'
+        manifest=driver/'loc2-capabilities.json'
         if manifest.stat().st_size>4096:return False
         value=json.loads(manifest.read_text())
         if not isinstance(value,dict) or value.get('schemaVersion')!=1 or value.get('wpa3Transition') is not True:return False

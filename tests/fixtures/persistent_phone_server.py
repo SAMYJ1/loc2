@@ -7,9 +7,9 @@ import threading
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]))
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from test_session import USBFixture
-from location_lab.session import SessionService
-from location_lab.phone import PhoneControl,PhoneServer
-from location_lab.local_host import dispatch
+from loc2.session import SessionService
+from loc2.phone import PhoneControl,PhoneServer
+from loc2.local_host import dispatch
 
 class ConnectedUSB(USBFixture):
     def start(self,session,device,emit):

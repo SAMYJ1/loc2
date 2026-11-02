@@ -1,6 +1,6 @@
 import datetime as dt
 import unittest
-from location_lab.session import SessionService
+from loc2.session import SessionService
 
 class USBFixture:
     def __init__(self):

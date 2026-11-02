@@ -9,10 +9,10 @@
 ```sh
 python3 -m unittest discover -s tests -v
 sh scripts/build-mac-app.sh
-open 'build/Location Lab.app'
+open 'build/Loc2.app'
 ```
 
-构建生成本地 ad-hoc 签名应用，显式以当前架构的 macOS 13.0 为部署目标，并核对二进制最低版本与应用声明一致，避免新 SDK 默认目标高于当前系统而无法启动。重复构建会刷新打包的 Python 模块，不保留已删除的旧模块。默认使用 `/usr/bin/python3`；通过环境变量 `LOCATION_LAB_PYTHON` 可指定其他 Python 3 的绝对路径。构建不启动 USB；打开应用只枚举连接设备，明确点击“应用位置”才启动会话。
+构建生成本地 ad-hoc 签名应用，显式以当前架构的 macOS 13.0 为部署目标，并核对二进制最低版本与应用声明一致，避免新 SDK 默认目标高于当前系统而无法启动。重复构建会刷新打包的 Python 模块，不保留已删除的旧模块。默认使用 `/usr/bin/python3`；通过环境变量 `LOC2_PYTHON` 可指定其他 Python 3 的绝对路径。构建不启动 USB；打开应用只枚举连接设备，明确点击“应用位置”才启动会话。
 
 ## 本机运行时配置
 
@@ -26,7 +26,7 @@ open 'build/Location Lab.app'
 
 不要将私钥粘贴到聊天或提交进仓库。应用不搜索或复制原实验目录。准备好的 `data/` 只供该应用使用，权限为 0700，文件为 0600；原实验目录保持不变。
 
-创建 `~/.config/location-lab/config.json`，仅保存准备目录的绝对路径：
+创建 `~/.config/loc2/config.json`，仅保存准备目录的绝对路径：
 
 ```json
 {"runtime":"/absolute/path/to/prepared-workspace"}
@@ -38,6 +38,8 @@ open 'build/Location Lab.app'
 
 菜单栏固定显示 App 中央的定位图形，去掉底色、网格和阴影，使用透明底的单色模板随菜单栏明暗适配，不常驻显示名称或状态文字。无圆点表示就绪，灰点表示未连接／已停止，黄点表示正在连接或准备会话，绿点表示正在报点，红点表示异常。悬停提示和点击后的菜单显示具体状态；绿点不表示手机已采用目标位置。
 
+点击图标打开 macOS 原生菜单，由系统提供悬停高亮、键盘选择及关闭行为。菜单展开时暂缓状态内容刷新，收起后更新为最新状态，避免刷新干扰点击。
+
 菜单栏打开详情，输入 WGS84 纬度、经度。仅一台 USB iPhone 就绪时才能应用。编辑输入只改变草稿；再次点击应用才替换已接受目标。真实后端认证、视频会话就绪信号及位置订阅均就绪后，使用已有实验的固定点 NMEA 供数路径，以最多 1 Hz 持续提供位置。等待期间显示“正在准备定位会话”。该时序与原验证流程对齐，但不是位置采用成功的保证。
 
 若运行时通过链接放在 macOS 受保护的“文稿”目录，应用可能请求该文件夹访问权限。开发构建重新签名后，系统可能重新询问；权限等待会阻塞动态库加载，不能误判为手机定位失败。只按实际需要处理文件夹权限，不需要完全磁盘访问权限。
@@ -48,9 +50,9 @@ open 'build/Location Lab.app'
 
 ## 开发接口
 
-`location_lab.session.SessionService` 是 Mac 与后续已授权手机操作共享的测试边界。`apply`、`status`、`stop`、`refresh_devices`、`tick`、`suspend`、`shutdown` 和用户观察确认提供外部行为；后端注入只用于系统边界。
+`loc2.session.SessionService` 是 Mac 与后续已授权手机操作共享的测试边界。`apply`、`status`、`stop`、`refresh_devices`、`tick`、`suspend`、`shutdown` 和用户观察确认提供外部行为；后端注入只用于系统边界。
 
-原生应用以私有 stdin/stdout JSONL 管道启动 `python3 -m location_lab.local_host`。可用 `--runtime` 指定准备目录，或 `--config` 指定本机配置。管道关闭、SIGTERM 或退出操作会结束 USB 会话。该管道不对局域网暴露，也不替代后续手机配对授权。
+原生应用以私有 stdin/stdout JSONL 管道启动 `python3 -m loc2.local_host`。可用 `--runtime` 指定准备目录，或 `--config` 指定本机配置。管道关闭、SIGTERM 或退出操作会结束 USB 会话。该管道不对局域网暴露，也不替代后续手机配对授权。
 
 ## USB 优先双通道（2026-11-02）
 

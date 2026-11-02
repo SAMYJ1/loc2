@@ -5,7 +5,7 @@ import Network
 final class USBControlTunnel: @unchecked Sendable {
     static let shared = USBControlTunnel()
     private let devicePort: UInt16
-    private let queue = DispatchQueue(label:"location-lab.usb-control")
+    private let queue = DispatchQueue(label:"loc2.usb-control")
     private let lock = NSLock()
     private var proxyPort: UInt16?
     private var connected = false

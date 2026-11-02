@@ -9,7 +9,7 @@ struct QRScanner: UIViewControllerRepresentable {
 }
 final class ScannerController: UIViewController, AVCaptureMetadataOutputObjectsDelegate {
     private let session = AVCaptureSession()
-    private let queue = DispatchQueue(label:"location-lab.camera")
+    private let queue = DispatchQueue(label:"loc2.camera")
     private var preview: AVCaptureVideoPreviewLayer?
     private var found = false
     var scanned: ((String) -> Void)?
@@ -40,7 +40,7 @@ final class ScannerController: UIViewController, AVCaptureMetadataOutputObjectsD
         let label = UILabel();label.text = text;label.textColor = .white;label.numberOfLines = 0;label.textAlignment = .center;label.frame = view.bounds.insetBy(dx:20,dy:40);view.addSubview(label)
     }
     func metadataOutput(_ output: AVCaptureMetadataOutput,didOutput objects: [AVMetadataObject],from connection: AVCaptureConnection) {
-        guard !found,let value = (objects.first as? AVMetadataMachineReadableCodeObject)?.stringValue,value.hasPrefix("locationlab://") else { return }
+        guard !found,let value = (objects.first as? AVMetadataMachineReadableCodeObject)?.stringValue,value.hasPrefix("loc2://") else { return }
         found = true;stop();scanned?(value)
     }
     func stop() { queue.async { [session] in if session.isRunning { session.stopRunning() } } }

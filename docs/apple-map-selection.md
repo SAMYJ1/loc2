@@ -4,7 +4,7 @@
 
 ## 本机配置
 
-在私有 `~/.config/location-lab/config.json` 中增加 `maps`，与现有 `runtime` 和 `phone` 配置并列；修改后重新打开 Mac 应用：
+在私有 `~/.config/loc2/config.json` 中增加 `maps`，与现有 `runtime` 和 `phone` 配置并列；修改后重新打开 Mac 应用：
 
 ```json
 {

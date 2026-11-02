@@ -19,7 +19,7 @@ try {
   await command('approve');
   await page.getByText('配对授权已确认。可将此页面添加到主屏幕。',{exact:true}).waitFor();
   const cookies=await page.context().cookies();
-  const grant=cookies.find(cookie=>cookie.name==='location_lab_control');
+  const grant=cookies.find(cookie=>cookie.name==='loc2_control');
   assert.equal(grant.httpOnly,true);assert.equal(grant.sameSite,'Strict');
   await page.getByLabel('WGS84 纬度').fill('1');
   await page.getByLabel('WGS84 经度').fill('2');
@@ -35,7 +35,7 @@ try {
   assert.equal(await page.getByLabel('WGS84 纬度').inputValue(),'1');
   assert.equal((await command('snapshot')).status.target.latitude,3);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
-  await page.screenshot({path:'/tmp/location-lab-favorites.png',fullPage:true});
+  await page.screenshot({path:'/tmp/loc2-favorites.png',fullPage:true});
   await page.getByRole('button',{name:'应用位置',exact:true}).click();
   await page.waitForFunction(()=>document.querySelector('#accepted').textContent.includes('1, 2'));
   await page.reload();

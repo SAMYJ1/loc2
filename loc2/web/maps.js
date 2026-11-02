@@ -2,7 +2,7 @@
 (() => {
   'use strict';
   const nonce = document.currentScript.nonce;
-  const lab = window.locationLab;
+  const lab = window.loc2;
   const root = document.createElement('section');
   root.className = 'map-tools';
   root.innerHTML = `<h3>Apple 地图</h3><p id="maps-status" class="secondary" role="status">配对后可使用 Apple 地图。</p><button id="maps-load" type="button" class="secondary-button" disabled>打开 Apple 地图</button><div id="apple-map" hidden></div><form id="maps-search" hidden><label>搜索地点<input id="maps-query" autocomplete="off" maxlength="200" required></label><button id="maps-search-button" type="submit">搜索</button></form><ul id="maps-results"></ul>`;
@@ -81,6 +81,6 @@
       if (pending?.catch) pending.catch(() => {});
     } catch { clearTimeout(timer); status('搜索不可用；手工 WGS84 输入仍可使用。'); }
   });
-  window.addEventListener('locationlab:status', config);
+  window.addEventListener('loc2:status', config);
   config();
 })();

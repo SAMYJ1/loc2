@@ -31,7 +31,7 @@ el('reference').addEventListener('submit', event => {
 });
 el('export').addEventListener('click', () => {
   const url = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' }));
-  const a = document.createElement('a'); a.href = url; a.download = 'location-lab-map-observations.json'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+  const a = document.createElement('a'); a.href = url; a.download = 'loc2-map-observations.json'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
 render();
 let map;

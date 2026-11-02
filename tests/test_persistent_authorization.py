@@ -4,9 +4,9 @@ from pathlib import Path
 import stat
 import tempfile
 import unittest
-from location_lab.phone import PhoneControl, RequestError
-from location_lab.local_host import dispatch
-from location_lab.session import SessionService
+from loc2.phone import PhoneControl, RequestError
+from loc2.local_host import dispatch
+from loc2.session import SessionService
 from test_session import USBFixture
 
 class PersistentAuthorizationTests(unittest.TestCase):

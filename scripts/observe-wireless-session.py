@@ -3,10 +3,10 @@
 import argparse,json,time,sys
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from location_lab.cli import request_stop
+from loc2.cli import request_stop
 p=argparse.ArgumentParser();p.add_argument('--minutes',type=int,default=120);p.add_argument('--output',required=True,type=Path);args=p.parse_args()
 assert 1<=args.minutes<=180
-state=Path.home()/'.config/location-lab/latest-status.private.json'
+state=Path.home()/'.config/loc2/latest-status.private.json'
 args.output.mkdir(parents=True,exist_ok=False,mode=0o700)
 print('WAITING_FOR_USER_APPLIED_SESSION',flush=True)
 wait_end=time.monotonic()+600;identity=None

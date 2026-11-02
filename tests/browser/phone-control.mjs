@@ -19,7 +19,7 @@ try {
   await command('approve');
   await page.getByText('配对授权已确认。可将此页面添加到主屏幕。',{exact:true}).waitFor();
   const cookies=await page.context().cookies();
-  const grant=cookies.find(cookie=>cookie.name==='location_lab_control');
+  const grant=cookies.find(cookie=>cookie.name==='loc2_control');
   assert.equal(grant.httpOnly,true);assert.equal(grant.sameSite,'Strict');
   await command('disconnect');
   await page.waitForFunction(()=>document.querySelector('#connection').textContent.includes('USB 未连接'));
@@ -46,7 +46,7 @@ try {
   assert.match(await page.locator('#connection').textContent(),/已停止报点/);
   assert.equal((await command('snapshot')).running,false);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
-  await page.screenshot({path:process.env.PHONE_SCREENSHOT || '/tmp/location-lab-phone-control.png',fullPage:true});
+  await page.screenshot({path:process.env.PHONE_SCREENSHOT || '/tmp/loc2-phone-control.png',fullPage:true});
   console.log('PASS pairing → private Mac approval → HttpOnly grant → unplugged draft → explicit apply → draft isolation → stop');
 } finally {
   await browser.close();fixture.stdin.write('quit\n');fixture.stdin.end();reader.close();

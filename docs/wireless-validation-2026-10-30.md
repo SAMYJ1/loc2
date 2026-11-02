@@ -25,7 +25,7 @@ Mac 防火墙检查结果为原本未开启，本轮没有修改防火墙。临�
 
 ## 纯蓝牙独立实验
 
-既有 MacPlay 配置要求 Wi-Fi，不适合声称纯蓝牙。本轮另行只读审查并使用独立实验客户端 [accessory-location](https://github.com/aur3l14no/accessory-location/tree/8a13296a3d81dae18ad4481e7a9eca913c2c644f)，固定提交 `8a13296a3d81dae18ad4481e7a9eca913c2c644f`。它的 Bluetooth profile 不声明无线 CarPlay，通过经典蓝牙 iAP2/RFCOMM 供给位置；不是普通 BLE App，也没有集成到 Location Lab 产品执行路径。
+既有 MacPlay 配置要求 Wi-Fi，不适合声称纯蓝牙。本轮另行只读审查并使用独立实验客户端 [accessory-location](https://github.com/aur3l14no/accessory-location/tree/8a13296a3d81dae18ad4481e7a9eca913c2c644f)，固定提交 `8a13296a3d81dae18ad4481e7a9eca913c2c644f`。它的 Bluetooth profile 不声明无线 CarPlay，通过经典蓝牙 iAP2/RFCOMM 供给位置；不是普通 BLE App，也没有集成到 loc2 产品执行路径。
 
 - 在仓库外隔离环境构建，先通过 37 项软件测试；使用已有本机认证材料，没有下载或生成新认证身份。
 - 手机 Wi-Fi 由用户关闭，USB 保持拔出，Mac Wi-Fi 保留用于本机正常网络。
@@ -42,7 +42,7 @@ Mac 防火墙检查结果为原本未开启，本轮没有修改防火墙。临�
 - MacPlayReceiver、livi-helperd、macplay-bluetooth 和纯蓝牙 bridge 测试进程均已退出。
 - 临时 Wi-Fi 密码副本已清除，临时 HTTP 服务已关闭。
 - 用户重新开启手机 Wi-Fi，并确认正常网络、真实位置及定位服务开启。
-- 只新增验证记录，没有将无线/纯蓝牙加入 Location Lab 正式功能；现有应用已验证的执行方式仍是 USB。
+- 只新增验证记录，没有将无线/纯蓝牙加入 loc2 正式功能；现有应用已验证的执行方式仍是 USB。
 - 独立客户端和本机原始证据保留在私有测试目录，不提交密码、设备地址、配对材料或私钥。
 
 ## 纯蓝牙再次切换到赛银国际广场

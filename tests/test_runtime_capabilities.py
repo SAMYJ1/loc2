@@ -4,7 +4,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from location_lab.runtime_capabilities import supports_wpa3_transition
+from loc2.runtime_capabilities import supports_wpa3_transition
 
 
 class RuntimeCapabilityTests(unittest.TestCase):
@@ -12,7 +12,7 @@ class RuntimeCapabilityTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);driver=root/'resources/driver';driver.mkdir(parents=True)
             helper=driver/'livi-helperd';helper.write_bytes(b'tested-fixture')
-            manifest=driver/'location-lab-capabilities.json'
+            manifest=driver/'loc2-capabilities.json'
             self.assertFalse(supports_wpa3_transition(root))
             manifest.write_text(json.dumps(dict(schemaVersion=1,wpa3Transition=True,
                 helperSHA256=hashlib.sha256(helper.read_bytes()).hexdigest())))

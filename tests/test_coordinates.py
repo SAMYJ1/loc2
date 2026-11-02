@@ -1,7 +1,7 @@
 import unittest
-from location_lab.coordinates import gcj2wgs_exact,wgs2gcj
-from location_lab.maps import validate_native_point
-from location_lab.session import validate_point
+from loc2.coordinates import gcj2wgs_exact,wgs2gcj
+from loc2.maps import validate_native_point
+from loc2.session import validate_point
 
 class CoordinatesTests(unittest.TestCase):
     def test_measured_saiyin_native_search_matches_independent_wgs_reference(self):

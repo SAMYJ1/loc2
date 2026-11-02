@@ -55,7 +55,7 @@ struct Invitation: Decodable {
     let fingerprint: String
     let challenge: String
     static func parse(_ string: String) throws -> Invitation {
-        guard let url = URLComponents(string: string), url.scheme == "locationlab", url.host == "pair",
+        guard let url = URLComponents(string: string), url.scheme == "loc2", url.host == "pair",
               var encoded = url.queryItems?.first(where: { $0.name == "data" })?.value else { throw AppFailure("连接邀请格式无效") }
         encoded = encoded.replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
         encoded += String(repeating: "=", count: (4 - encoded.count % 4) % 4)

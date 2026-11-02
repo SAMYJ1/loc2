@@ -12,7 +12,7 @@ def request_stop(snapshot):
     if not snapshot.get('sessionActive'): return False
     path=Path(snapshot.get('stopFile') or '')
     # Never create a missing run directory or redirect a stop toward another path.
-    if path.name!='STOP' or not path.parent.name.startswith('ll-') or path.parent.parent!=Path('/tmp'):
+    if path.name!='STOP' or not path.parent.name.startswith('loc2-') or path.parent.parent!=Path('/tmp'):
         raise ValueError('停止路径无效')
     info=path.parent.lstat()
     if not stat.S_ISDIR(info.st_mode) or info.st_uid!=os.getuid() or info.st_mode&0o077:
@@ -32,7 +32,7 @@ def request_stop(snapshot):
 def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('action',choices=['status','stop'])
-    parser.add_argument('--config',type=Path,default=Path.home()/'.config/location-lab/config.json')
+    parser.add_argument('--config',type=Path,default=Path.home()/'.config/loc2/config.json')
     args=parser.parse_args()
     configuration=json.loads(args.config.read_text())
     path=Path(configuration.get('stateDirectory',args.config.parent)).expanduser()/'latest-status.private.json'

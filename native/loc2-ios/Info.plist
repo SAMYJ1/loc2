@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>zh-Hans</string>
 	<key>CFBundleDisplayName</key>
-	<string>Location Lab</string>
+	<string>Loc2</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -20,10 +20,10 @@
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>local.location-lab.pair</string>
+			<string>local.loc2.pair</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>locationlab</string>
+				<string>loc2</string>
 			</array>
 		</dict>
 	</array>
@@ -38,7 +38,7 @@
 	</dict>
 	<key>NSBonjourServices</key>
 	<array>
-		<string>_locationlab._tcp.</string>
+		<string>_loc2._tcp.</string>
 	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>扫描 Mac 显示的二维码，建立你确认的控制连接。</string>

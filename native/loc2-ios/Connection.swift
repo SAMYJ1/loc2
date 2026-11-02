@@ -3,7 +3,7 @@ import Security
 import CryptoKit
 
 final class SecureProfile {
-    private static let service = "local.location-lab.mobile.connection"
+    private static let service = "local.loc2.mobile.connection"
     static func read() throws -> ComputerRegistry {
         let query: [String:Any] = [kSecClass as String:kSecClassGenericPassword,kSecAttrService as String:service,
                                   kSecReturnData as String:true,kSecMatchLimit as String:kSecMatchLimitOne]

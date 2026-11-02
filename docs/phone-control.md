@@ -4,7 +4,7 @@
 
 ## 本机配置
 
-在私有 `~/.config/location-lab/config.json` 中保留已有运行时配置，并增加：
+在私有 `~/.config/loc2/config.json` 中保留已有运行时配置，并增加：
 
 ```json
 {
@@ -36,7 +36,7 @@ Mac 应用需运行，手机与 Mac 需同网且该地址可达。Mac 关闭后�
 
 ## 持久授权与撤销
 
-默认授权文件是本机配置同目录下的 `grants.json`（通常为 `~/.config/location-lab/grants.json`）。可在顶层配置 `stateDirectory` 指定另一个绝对路径；授权与收藏使用各自独立文件。
+默认授权文件是本机配置同目录下的 `grants.json`（通常为 `~/.config/loc2/grants.json`）。可在顶层配置 `stateDirectory` 指定另一个绝对路径；授权与收藏使用各自独立文件。
 
 授权目录应为当前用户所有且权限 0700，授权文件为 0600。写入通过私有临时文件、fsync 和原子替换完成。文件仅保存高熵随机凭据的 SHA-256 哈希、不可用于登录的授权标识、绑定设备、控制端声明名称和创建时间；不保存原始 Cookie、请求队列、会话、目标、epoch 或 revision。
 
@@ -62,7 +62,7 @@ Mac 配对窗口列出已授权控制端，可点击“撤销所选控制端授�
 
 Python `PhoneControl(service)` 持有共享 `SessionService`；HTTP 层始终通过此控制边界执行操作。`state_dir` 指定私有持久化目录。授权与收藏按绑定设备隔离，地图只在本机校准策略成立后扩展坐标提供方校验。
 
-页面提供 `window.locationLab` 的 `setDraft(point)`、`getDraft()`、`getState()` 和 `request(path, body)`，并派发 `locationlab:draft`、`locationlab:status`。`selection-tools` 是新增选点入口的容器。任何入口只改变草稿，明确点击应用才改变会话。
+页面提供 `window.loc2` 的 `setDraft(point)`、`getDraft()`、`getState()` 和 `request(path, body)`，并派发 `loc2:draft`、`loc2:status`。`selection-tools` 是新增选点入口的容器。任何入口只改变草稿，明确点击应用才改变会话。
 
 ## 验证
 
