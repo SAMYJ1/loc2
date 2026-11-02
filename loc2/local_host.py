@@ -23,11 +23,16 @@ from .favorites import FavoritesStorageError
 
 
 def runtime_config(path):
-    if not path.exists(): return {}
-    if path.stat().st_size > 65536:
-        raise ValueError('本机配置文件过大')
-    value=json.loads(path.read_text())
-    if not isinstance(value,dict): raise ValueError('本机配置格式不正确')
+    value={}
+    if path.exists():
+        if path.stat().st_size > 65536:
+            raise ValueError('本机配置文件过大')
+        value=json.loads(path.read_text())
+        if not isinstance(value,dict): raise ValueError('本机配置格式不正确')
+    # Pairing is available before the optional positioning runtime is installed.
+    # Respect explicitly configured (including disabled) native or legacy service.
+    if 'nativePhone' not in value and 'phone' not in value:
+        value['nativePhone']={'interface':'en0','port':8767}
     return value
 
 
@@ -90,6 +95,7 @@ def main():
         try:
             settings=config['nativePhone']
             state_dir=Path(config.get('stateDirectory',args.config.parent)).expanduser()
+            state_dir.mkdir(mode=0o700,parents=True,exist_ok=True)
             phone=PhoneControl(service,state_dir=state_dir,maps_config=config.get('maps'))
             bind=settings.get('bindAddress') or interface_address(settings.get('interface','en0'))
             host=settings.get('advertisedHost')
