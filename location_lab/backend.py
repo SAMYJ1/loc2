@@ -16,6 +16,8 @@ import struct
 import subprocess
 import tempfile
 import threading
+from .current_network import require_supported_security
+from .runtime_capabilities import supports_wpa3_transition
 
 
 def _read_exact(connection, count):
@@ -97,10 +99,12 @@ class USBBackend:
             raise ValueError('USB 运行时或本机认证资料不完整')
         if not os.access(executable,os.X_OK):
             raise ValueError('USB 运行时不可执行')
+        settings = self.settings(device_id)
+        reuse=bool(settings.get('wireless') and settings.get('reuseConnectedWiFi') is True and supports_wpa3_transition(self.workspace))
+        if settings.get('wireless'):require_supported_security(settings.get('wifiSecurity',2),reuse_connected_wifi=reuse)
         # Short root keeps the Unix socket below macOS sockaddr_un's 104-byte limit.
         self.run = Path(tempfile.mkdtemp(prefix='ll-',dir='/tmp'))
         self.socket_path = self.run/'control.sock'
-        settings = self.settings(device_id)
         # The helper also binds authentication/bluetooth.sock below MACPLAY_DATA.
         # Keep its lexical path short while preserving the original identity files.
         session_data=self.run/'data'
@@ -118,6 +122,7 @@ class USBBackend:
                    MACPLAY_RESOURCES=str(resources),MACPLAY_LANGUAGE='zh-Hans',
                    MACPLAY_ATTEMPT='location-lab',MACPLAY_TEST_SOCKET=str(self.socket_path),
                    MACPLAY_LOCATION_LANE=self.lane,MACPLAY_WIFI_SECURITY=str(settings.get('wifiSecurity',2)),GST_REGISTRY=str(self.run/'gst-registry.bin'),
+                   MACPLAY_REUSE_CONNECTED_WIFI='1' if reuse else '0',
                    DYLD_LIBRARY_PATH=str(resources/'gstreamer/macos-arm64/lib'))
         try:
             process = subprocess.Popen([str(executable),str(resources/'engine/main.js')],env=env,

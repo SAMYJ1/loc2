@@ -33,6 +33,14 @@ class DualTransportTests(unittest.TestCase):
         self.apply();self.report(self.usb)
         self.assertEqual(len(self.usb.frames),1);self.assertFalse(self.wireless.running)
         self.assertEqual(self.wireless.prepared,0)
+    def test_unsupported_wpa3_does_not_block_usb_reporting(self):
+        self.backend.current_network=CurrentNetwork(lambda request:self.fail('USB must not request Wi-Fi credentials'))
+        self.backend.current_network.update_metadata(dict(ssid='fixture',channel=48,wifiInterface='en0',
+            accessPointMAC='00:11:22:33:44:55',wifiSecurity=4))
+        self.assertEqual(self.backend.current_network.issue,'unsupported-wpa3')
+        self.apply();self.report(self.usb)
+        self.assertEqual(len(self.usb.frames),1);self.assertEqual(self.wireless.prepared,0)
+        self.assertIsNone(self.service.refresh_devices()['connectionHint'])
     def test_wireless_when_usb_absent(self):
         self.usb.devices=[];self.apply();self.report(self.wireless)
         self.assertEqual(self.wireless.prepared,1);self.assertEqual(len(self.wireless.frames),1)

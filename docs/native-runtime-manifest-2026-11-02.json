@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "wpa3Transition": true,
+  "helperSHA256": "fd6cf9c48070c95d747f83ef6065e570ceb8765176749b386967a9a571dd9d11",
+  "patchSHA256": "b9e3b6838f2ec3b1957467a565d2e68c1b8896a1328f9ebb8d2c4b1d29d654f5",
+  "validation": "Current mixed-mode AP: phone received securityType=3; user confirmed apply/recovery; 7 batches/14 queued messages; 88 decoded frames; requested-stop; no receiver processes remaining.",
+  "baselineFileSHA256": {
+    "crates/livi-runtime/tests/bringup.rs": "71160baf7625eda6766c5d05fa81431ad48b9e2d7c04165944155df084049b3d",
+    "crates/livi-runtime/tests/livi_sock.rs": "657649e64b921ded6ab3de33a6c3c0afb4f660dded074390c0a23bd0170b2c87",
+    "crates/livi-runtime/src/bringup.rs": "36cd9b32642df9911d2b15c61db26a3646ca36e62663fc6570069d9df66e1282",
+    "crates/livi-runtime/src/ident.rs": "3b8862cdab33ed5ec633eb9a8939a8888d3cba1184683bd11416b9edbdf15caa",
+    "bin/mac-usbmuxd-probe/src/main.rs": "bb91e81ce749bf396e0c81f3831ba544cb175bef447ab908b40ddc750e452e4f",
+    "bin/livi-helperd/src/linux_main.rs": "383bf960efa1721051c181efd142cff57278b6f1f57d8bbc5e46c0792325e6a3",
+    "bin/livi-helperd/src/mac_main.rs": "687620e5b1088ec11a973d70364e513668a4d88af0de021dfb64f50f83bb09e5"
+  }
+}

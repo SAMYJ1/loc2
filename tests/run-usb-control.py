@@ -28,7 +28,7 @@ with tempfile.TemporaryDirectory(prefix='ll-usb-control-') as directory:
     try:
         profile=folder/'profile.json';profile.write_text(json.dumps(dict(endpoint='https://usb-fixture.invalid:9',fingerprint=server.fingerprint,token=token)));profile.chmod(0o600)
         executable=folder/'probe'
-        sources=['Models.swift','Coordinates.swift','Connection.swift','USBControlTunnel.swift']
+        sources=['Models.swift','Coordinates.swift','Connection.swift','USBControlTunnel.swift','ComputerRegistry.swift']
         sdk=subprocess.check_output(['xcrun','--sdk','macosx','--show-sdk-path'],text=True).strip()
         compile_result=subprocess.run(['xcrun','swiftc','-sdk',sdk,'-parse-as-library',*[str(root/'native/LocationLabMobile'/name) for name in sources],str(root/'tests/native/USBControlProbe.swift'),'-o',str(executable),'-framework','CoreLocation'],capture_output=True,text=True)
         if compile_result.returncode:print(compile_result.stderr,file=sys.stderr);raise SystemExit(compile_result.returncode)

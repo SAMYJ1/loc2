@@ -14,6 +14,7 @@ from .dual_transport import DualTransportBackend
 from .usb_control import USBControlBridge
 from .native_server import NativeServer
 from .current_network import CurrentNetwork
+from .runtime_capabilities import supports_wpa3_transition
 import subprocess
 from .session import SessionService
 from .phone import PhoneControl, PhoneServer
@@ -77,7 +78,7 @@ def main():
     config=runtime_config(args.config)
     runtime=args.runtime or config.get('runtime')
     network_requests=queue.Queue()
-    dynamic_network=CurrentNetwork(network_requests.put) if config.get('wireless',{}).get('autoNetwork') else None
+    dynamic_network=CurrentNetwork(network_requests.put,allow_wpa3_transition=supports_wpa3_transition(runtime)) if config.get('wireless',{}).get('autoNetwork') else None
     if config.get('transport') in ('wireless','auto'):
         wireless=WirelessBackend(runtime,config['wireless'].get('networkConfig'),legacy_device_id=config['wireless'].get('legacyDeviceID'),current_network=dynamic_network,target_bluetooth=config['wireless'].get('targetBluetooth'),wifi_interface=config['wireless'].get('wifiInterface','en0'))
         backend=DualTransportBackend(USBBackend(config.get('usbRuntime') or runtime),wireless,config.get('targetUSB')) if config.get('transport')=='auto' else wireless
