@@ -23,9 +23,14 @@ import Foundation
             var stalled = a
             stalled.endpoint = "https://localhost:" + (try String(contentsOf:folder.appendingPathComponent("stalled-port"))).trimmingCharacters(in:.whitespacesAndNewlines)
             let began = Date()
-            guard let reachable = await connector.discover([stalled,b],currentID:stalled.id,sessionOwnerID:nil),
+            guard let reachable = await connector.discover([stalled,unbound,b],currentID:stalled.id,sessionOwnerID:nil),
                   reachable.client.profile.id == b.id,Date().timeIntervalSince(began)<4 else { throw AppFailure("Unresponsive Mac blocked automatic connection") }
             reachable.client.close()
+            guard let reconnected = await connector.discover([stalled,unbound],currentID:stalled.id,sessionOwnerID:nil),
+                  reconnected.client.profile.id == unbound.id,reconnected.status["targetBound"] as? Bool == false else {
+                throw AppFailure("Offline current Mac did not fall back to an unbound paired Mac")
+            }
+            reconnected.client.close()
             // A revoked authorization must not prevent trying a separately authorized Mac.
             var revoked = a;revoked.token = "revoked-fixture"
             guard let authorized = await connector.discover([revoked,b],currentID:revoked.id,sessionOwnerID:nil),
@@ -76,7 +81,7 @@ import Foundation
             let applied = try await fallback.client.request("/v1/apply",body:command)
             guard SessionSnapshot(applied).sessionID != nil else { throw AppFailure("Chosen computer did not accept command") }
             _ = try await fallback.client.request("/v1/stop",body:SessionSnapshot(applied).command)
-            print("PASS: unbound pairing reachability, separate credentials, USB identity matching, LAN fallback, session-owner preference and no command replay")
+            print("PASS: unbound current and cross-Mac fallback, separate credentials, USB identity matching, LAN fallback, session-owner preference and no command replay")
         } catch { print("FAIL:",error.localizedDescription);exit(1) }
     }
 }
