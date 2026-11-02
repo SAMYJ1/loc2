@@ -13,6 +13,7 @@ from .wireless import interface_address
 from .usb_control import USBControlBridge
 from .native_server import NativeServer
 from .setup import runtime_config, create_backend, bind_wireless_target
+from .runtime_bundle import bundled_workspace, runtime_status, import_authentication
 import subprocess
 from .session import SessionService
 from .phone import PhoneControl, PhoneServer
@@ -68,6 +69,8 @@ def main():
     args=parser.parse_args()
     config=runtime_config(args.config)
     runtime=args.runtime or config.get('runtime')
+    if args.runtime is None and (not runtime or runtime_status(runtime)['state']=='missing-runtime'):
+        runtime=bundled_workspace() or runtime
     network_requests=queue.Queue()
     backend,dynamic_network=create_backend(config,runtime,network_requests)
     service=SessionService(backend)
@@ -177,7 +180,14 @@ def main():
             try:
                 request=json.loads(line)
                 if not isinstance(request,dict): raise ValueError('请求必须为对象')
-                if request.get('action')=='bind-wireless-target':
+                if request.get('action')=='import-runtime-authentication':
+                    if service.snapshot['sessionId'] or service.snapshot['recovery']=='pending':
+                        raise ValueError('请先停止会话并确认恢复真实位置，再导入认证材料')
+                    source=request.get('directory')
+                    if not isinstance(source,str) or not Path(source).is_absolute(): raise ValueError('请选择认证材料目录')
+                    import_authentication(runtime,source)
+                    result=service.status()
+                elif request.get('action')=='bind-wireless-target':
                     try: bind_wireless_target(service,phone,request,args.config,config,runtime,network_requests)
                     finally: dynamic_network=getattr(service.backend,'current_network',None)
                     result=service.refresh_devices()
@@ -190,6 +200,7 @@ def main():
                 response=dict(id=request.get('id'),ok=False,error='本机操作失败，请检查运行时配置',status=service.status())
             if isinstance(request,dict) and request.get('action')=='bind-wireless-target' and response['ok']:
                 response['setupMessage']='已保存目标并更新所选手机授权，无需重新扫码。请从菜单初始化网络授权，再明确应用位置。' if runtime else '已保存目标并更新所选手机授权，无需重新扫码。此 Mac 尚未配置定位运行时；准备完成后再初始化网络授权并应用位置。'
+            response['runtime']=runtime_status(runtime)
             response['networkAutoEnabled']=dynamic_network is not None
             native_server=phone_server if isinstance(phone_server,NativeServer) else usb_server
             response['phone']=native_server.local_status() if native_server else phone.local_status() if phone else dict(error=phone_error or '请配置本机 phone 局域网地址以启用手机控制',pending=[])

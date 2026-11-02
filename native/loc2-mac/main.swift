@@ -33,6 +33,7 @@ final class LocationApp: NSObject, NSApplicationDelegate {
     private var installer: Process?
     private var installerBuffer = Data()
     private var installationStatus: String?
+    private var runtimeMessage: String?
     private var networkStarted = false
     private var advertisement: NetService?
     private lazy var networkCoordinator: NetworkCoordinator = {
@@ -56,6 +57,7 @@ final class LocationApp: NSObject, NSApplicationDelegate {
         menu.addItem(withTitle: "打开详情", action: #selector(showDetails), keyEquivalent: "")
         menu.addItem(withTitle: "更新手机 App", action: #selector(updatePhone), keyEquivalent: "")
         menu.addItem(withTitle: "初始化或更新网络授权…", action: #selector(authorizeNetwork), keyEquivalent: "")
+        menu.addItem(withTitle: "导入运行时认证材料…", action: #selector(importRuntimeAuthentication), keyEquivalent: "")
         menu.addItem(withTitle: "检查当前网络", action: #selector(checkNetwork), keyEquivalent: "")
         menu.addItem(withTitle: "停止报点", action: #selector(stop), keyEquivalent: "")
         menu.addItem(withTitle: "配对手机控制端", action: #selector(createPairing), keyEquivalent: "")
@@ -156,11 +158,14 @@ final class LocationApp: NSObject, NSApplicationDelegate {
     private func startHost() {
         let task = Process()
         let resources = Bundle.main.resourceURL ?? URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-        task.executableURL = URL(fileURLWithPath: ProcessInfo.processInfo.environment["LOC2_PYTHON"] ?? "/usr/bin/python3")
+        let bundledPython = resources.appendingPathComponent("Python/bin/python3")
+        task.executableURL = URL(fileURLWithPath:ProcessInfo.processInfo.environment["LOC2_PYTHON"] ?? (FileManager.default.isExecutableFile(atPath:bundledPython.path) ? bundledPython.path : "/usr/bin/python3"))
         task.arguments = ["-m","loc2.local_host"]
         task.currentDirectoryURL = resources
         var environment = ProcessInfo.processInfo.environment
         environment["PYTHONPATH"] = resources.path
+        environment["PYTHONNOUSERSITE"] = "1"
+        environment["PYTHONDONTWRITEBYTECODE"] = "1"
         environment["PYTHONUNBUFFERED"] = "1"
         task.environment = environment
         let incoming = Pipe(), outgoing = Pipe()
@@ -213,6 +218,7 @@ final class LocationApp: NSObject, NSApplicationDelegate {
             if response["event"] as? String == "network-request",let identifier = response["requestId"] as? String {
                 networkCoordinator.request(identifier,interactive:response["interactive"] as? Bool ?? false);continue
             }
+            if let runtime = response["runtime"] as? [String:Any] { runtimeMessage = runtime["ready"] as? Bool == true ? nil : runtime["message"] as? String }
             if let snapshot = response["status"] as? [String: Any] { state = snapshot;render() }
             if let error = response["error"] as? String { statusText.stringValue = error }
             if let details = response["phone"] as? [String:Any] { phone = details;renderPhone() }
@@ -251,6 +257,7 @@ final class LocationApp: NSObject, NSApplicationDelegate {
         if let phase = state["diagnosticStage"] as? String {
             statusText.stringValue += "\n阶段：\(phase) · 解码帧：\(state["videoDecodedFrames"] ?? 0)"
         }
+        if let message = runtimeMessage { statusText.stringValue += "\n" + message }
         if let error = state["error"] as? String { statusText.stringValue += "\n" + error }
         if let point = state["target"] as? [String: Any], let lat = point["latitude"] as? Double, let lon = point["longitude"] as? Double {
             targetText.stringValue = "已接受目标：\(lat), \(lon) · WGS84\n本地接受批次：\(state["helperAcceptedBatches"] ?? 0)（不代表手机采用）"
@@ -392,6 +399,15 @@ final class LocationApp: NSObject, NSApplicationDelegate {
         task.terminationHandler = { [weak self] _ in DispatchQueue.main.async { self?.installer = nil } }
         do { try task.run();installer = task;showDetails() }
         catch { statusText.stringValue = "无法启动手机更新工具";showDetails() }
+    }
+
+    @objc private func importRuntimeAuthentication() {
+        let panel = NSOpenPanel()
+        panel.title = "导入本机运行时认证材料"
+        panel.message = "选择包含 identity.pk8 与 certificate.p7b 的 authentication 目录。材料只保存在本机，不上传；已有身份不会被覆盖。"
+        panel.canChooseDirectories = true;panel.canChooseFiles = false;panel.allowsMultipleSelection = false
+        guard panel.runModal() == .OK,let url = panel.url else { return }
+        showDetails();send("import-runtime-authentication",values:["directory":url.path])
     }
 
     @objc private func authorizeNetwork() { showDetails();send("network-authorize") }

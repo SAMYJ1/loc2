@@ -90,13 +90,13 @@ class USBBackend:
         if self.process is not None:
             raise RuntimeError('A USB session already exists')
         if not self.workspace:
-            raise ValueError('请先配置 USB 运行时路径')
+            raise ValueError('请先安装包含定位运行时的完整版 App')
         resources, data = self.workspace/'resources', self.workspace/'data'
         executable = resources/'runtime/MacPlayReceiver.app/Contents/MacOS/MacPlayReceiver'
         required = [executable, resources/'engine/main.js', data/'authentication/identity.pk8',
-                    data/'authentication/certificate.p7b',data/'cp/macplay-v3/identity.json']
+                    data/'authentication/certificate.p7b']
         if any(not path.is_file() for path in required):
-            raise ValueError('USB 运行时或本机认证资料不完整')
+            raise ValueError('定位运行时或本机认证材料不完整，请在 Mac 检查运行时状态')
         if not os.access(executable,os.X_OK):
             raise ValueError('USB 运行时不可执行')
         settings = self.settings(device_id)
