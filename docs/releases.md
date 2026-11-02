@@ -28,6 +28,8 @@ python3 scripts/package-release.py \
 python3 scripts/verify-release.py dist/0.1.0
 ```
 
+重复打包可增加 `--python-archive /path/to/cached-python.tar.gz` 使用本地下载缓存；仍必须通过固定 SHA-256 校验，不能替换成任意 Python 包。
+
 iOS 构建需要事先在环境中设置 `LOC2_TEAM`；不将签名私钥或本机安装配置提交仓库。版本号和 build 必须与 IPA 内的声明一致。
 
 打包工具执行以下步骤：

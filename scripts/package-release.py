@@ -89,9 +89,12 @@ def relocate_runtime(root, original):
     return '.'.join(str(n) for n in minimum)
 
 
-def obtain_python(cache):
+def obtain_python(cache, source_archive=None):
     lock=json.loads((ROOT/'release/python-runtime.json').read_text())
     archive=cache/'python.tar.gz'
+    if source_archive is not None:
+        if digest(source_archive)!=lock['sha256']: raise ValueError('Cached Python archive checksum mismatch')
+        shutil.copyfile(source_archive,archive)
     if not archive.exists() or digest(archive)!=lock['sha256']:
         with urllib.request.urlopen(lock['url'],timeout=90) as response, archive.open('wb') as file: shutil.copyfileobj(response,file)
     if digest(archive)!=lock['sha256']: raise ValueError('Python download checksum mismatch')
@@ -134,6 +137,7 @@ def main():
     parser.add_argument('--mac-app',type=Path,default=ROOT/'build/Loc2.app')
     parser.add_argument('--ios-app',required=True,type=Path)
     parser.add_argument('--output',required=True,type=Path)
+    parser.add_argument('--python-archive',type=Path,help='Optional cached archive; must match pinned SHA-256')
     args=parser.parse_args()
     if not re.fullmatch(r'\d+\.\d+\.\d+',args.version) or not args.build.isdigit(): parser.error('Version/build must be numeric')
     capability=check_runtime_tree(args.runtime_resources)
@@ -154,7 +158,7 @@ def main():
         minimum=relocate_runtime(runtime,args.runtime_resources.resolve())
         capability.update(sourceHelperSHA256=capability['helperSHA256'],helperSHA256=digest(runtime/'driver/livi-helperd'))
         (runtime/'driver/loc2-capabilities.json').write_text(json.dumps(capability,indent=2)+'\n')
-        python,python_lock=obtain_python(stage)
+        python,python_lock=obtain_python(stage,args.python_archive)
         shutil.copytree(python,resources/'Python',symlinks=True)
         licenses=resources/'ThirdPartyLicenses';licenses.mkdir(exist_ok=True)
         for name in ('LICENSE','NOTICE','CREDITS.md'): shutil.copy2(args.third_party_source/name,licenses/('MacPlay-'+name))
