@@ -1,13 +1,33 @@
 import json
 from pathlib import Path
+import subprocess
 import tempfile
 import time
 import unittest
-from loc2.wireless import WirelessBackend,network_config
+from loc2.wireless import WirelessBackend,interface_address,network_config
 from loc2.session import SessionService
 from test_runtime_boundary import RECEIVER
 
 class WirelessTests(unittest.TestCase):
+    def test_interface_address_uses_default_route_and_preserves_explicit_override(self):
+        commands=[]
+        def run(command,**kwargs):
+            commands.append(command)
+            if command == ['/sbin/route','-n','get','default']:
+                return subprocess.CompletedProcess(command,0,stdout='gateway: 192.168.10.1\ninterface: en7\n')
+            addresses={'en7':'192.168.10.23\n','en9':'10.0.0.9\n'}
+            return subprocess.CompletedProcess(command,0,stdout=addresses[command[-1]])
+        self.assertEqual(interface_address(run=run),'192.168.10.23')
+        self.assertEqual(commands,[['/sbin/route','-n','get','default'],['/usr/sbin/ipconfig','getifaddr','en7']])
+        commands.clear()
+        self.assertEqual(interface_address('en9',run=run),'10.0.0.9')
+        self.assertEqual(commands,[['/usr/sbin/ipconfig','getifaddr','en9']])
+
+    def test_interface_address_fails_closed_without_a_valid_default_route(self):
+        def run(command,**kwargs):
+            return subprocess.CompletedProcess(command,0,stdout='gateway: 192.168.10.1\n')
+        self.assertEqual(interface_address(run=run),'')
+
     def test_verified_transition_reaches_receiver_without_legacy_wifi_sharing(self):
         import hashlib
         from loc2.current_network import CurrentNetwork

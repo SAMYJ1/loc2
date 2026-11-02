@@ -11,11 +11,27 @@ from .backend import USBBackend, usb_devices
 from .current_network import require_supported_security
 
 
-def interface_address(interface):
-    result = subprocess.run(['/usr/sbin/ipconfig','getifaddr',interface],capture_output=True,text=True,timeout=3)
+def default_route_interface(run=subprocess.run):
+    try:
+        result=run(['/sbin/route','-n','get','default'],capture_output=True,text=True,timeout=3)
+    except (OSError,subprocess.TimeoutExpired):
+        return ''
+    if result.returncode != 0:return ''
+    match=re.search(r'^\s*interface:\s*([A-Za-z0-9][A-Za-z0-9._-]{0,31})\s*$',result.stdout,re.MULTILINE)
+    return match.group(1) if match else ''
+
+
+def interface_address(interface=None,run=subprocess.run):
+    interface=interface or default_route_interface(run)
+    if not isinstance(interface,str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,31}',interface):return ''
+    try:
+        result=run(['/usr/sbin/ipconfig','getifaddr',interface],capture_output=True,text=True,timeout=3)
+    except (OSError,subprocess.TimeoutExpired):
+        return ''
     address = result.stdout.strip()
     try:
-        return address if result.returncode == 0 and ipaddress.ip_address(address).is_private else ''
+        parsed=ipaddress.ip_address(address)
+        return address if result.returncode == 0 and parsed.version == 4 and parsed.is_private else ''
     except ValueError:
         return ''
 

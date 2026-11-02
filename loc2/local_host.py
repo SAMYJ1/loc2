@@ -32,7 +32,7 @@ def runtime_config(path):
     # Pairing is available before the optional positioning runtime is installed.
     # Respect explicitly configured (including disabled) native or legacy service.
     if 'nativePhone' not in value and 'phone' not in value:
-        value['nativePhone']={'interface':'en0','port':8767}
+        value['nativePhone']={'port':8767}
     return value
 
 
@@ -97,7 +97,7 @@ def main():
             state_dir=Path(config.get('stateDirectory',args.config.parent)).expanduser()
             state_dir.mkdir(mode=0o700,parents=True,exist_ok=True)
             phone=PhoneControl(service,state_dir=state_dir,maps_config=config.get('maps'))
-            bind=settings.get('bindAddress') or interface_address(settings.get('interface','en0'))
+            bind=settings.get('bindAddress') or interface_address(settings.get('interface'))
             host=settings.get('advertisedHost')
             if not host:
                 query=subprocess.run(['/usr/sbin/scutil','--get','LocalHostName'],capture_output=True,text=True,timeout=3)
@@ -166,7 +166,7 @@ def main():
             if time.monotonic()>=refresh_at:
                 if config.get('nativePhone'):
                     settings=config['nativePhone']
-                    desired=settings.get('bindAddress') or interface_address(settings.get('interface','en0'))
+                    desired=settings.get('bindAddress') or interface_address(settings.get('interface'))
                     if phone_server is None or phone_server.server_address[0]!=desired:
                         if phone_server:
                             phone_server.shutdown();phone_server.server_close();phone_server=None

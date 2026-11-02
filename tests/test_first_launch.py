@@ -18,8 +18,11 @@ class FirstLaunchTests(unittest.TestCase):
 from unittest.mock import patch
 from loc2 import local_host
 from loc2.native_server import NativeServer
+def current_address(interface):
+    assert interface is None
+    return '127.0.0.1'
 with patch.object(local_host.USBBackend, 'device_ids', return_value=['test-phone']), \\
-     patch.object(local_host, 'interface_address', return_value='127.0.0.1'), \\
+     patch.object(local_host, 'interface_address', side_effect=current_address), \\
      patch.object(local_host, 'NativeServer', type('EphemeralServer', (NativeServer,), {
          '__init__': lambda self, address, control, host, state_dir:
              NativeServer.__init__(self, (address[0], 0), control, host, state_dir)
@@ -69,5 +72,6 @@ with patch.object(local_host.USBBackend, 'device_ids', return_value=['test-phone
             path.write_text('{"runtime":"/example/runtime"}')
             config = runtime_config(path)
             self.assertTrue(config.get('nativePhone'))
+            self.assertEqual(config['nativePhone'], {'port': 8767})
             self.assertEqual(config['runtime'], '/example/runtime')
             self.assertEqual(json.loads(path.read_text()), {'runtime': '/example/runtime'})
