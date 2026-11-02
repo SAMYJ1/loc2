@@ -33,7 +33,11 @@ Loc2 不能保证 iOS 接受任意距离的目标。设备可能根据当前系�
 
 发布包限制、签名和打包方法见[应用 Release](docs/releases.md)。
 
+<<<<<<< HEAD
 ## 新 Mac 首次设置
+=======
+Mac App ZIP 与 iOS 开发签名 IPA 通过 [GitHub Releases](https://github.com/SAMYJ1/loc2/releases) 分发。Mac 完整包包含运行时与 Python，无需手填运行时路径；认证材料支持在 App 内登录 GitHub，从指定私有仓库一键下载并导入。平台要求、签名限制及打包方法见[应用 Release](docs/releases.md)。
+>>>>>>> aab7ab4 (feat: sign in to GitHub and import private authentication in app)
 
 以下配置是每台 Mac 独立的。不能只安装 App 和扫码；运行时认证、地图校准、目标绑定和网络授权都完成后，原生地图选点才能正常应用。
 

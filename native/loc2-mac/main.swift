@@ -34,6 +34,7 @@ final class LocationApp: NSObject, NSApplicationDelegate {
     private var installerBuffer = Data()
     private var installationStatus: String?
     private var runtimeMessage: String?
+    private var githubImporter: GitHubImportController?
     private var networkStarted = false
     private var advertisement: NetService?
     private lazy var networkCoordinator: NetworkCoordinator = {
@@ -57,6 +58,7 @@ final class LocationApp: NSObject, NSApplicationDelegate {
         menu.addItem(withTitle: "打开详情", action: #selector(showDetails), keyEquivalent: "")
         menu.addItem(withTitle: "更新手机 App", action: #selector(updatePhone), keyEquivalent: "")
         menu.addItem(withTitle: "初始化或更新网络授权…", action: #selector(authorizeNetwork), keyEquivalent: "")
+        menu.addItem(withTitle: "从 GitHub 登录并导入认证材料…", action: #selector(importGitHubAuthentication), keyEquivalent: "")
         menu.addItem(withTitle: "导入运行时认证材料…", action: #selector(importRuntimeAuthentication), keyEquivalent: "")
         menu.addItem(withTitle: "检查当前网络", action: #selector(checkNetwork), keyEquivalent: "")
         menu.addItem(withTitle: "停止报点", action: #selector(stop), keyEquivalent: "")
@@ -116,7 +118,7 @@ final class LocationApp: NSObject, NSApplicationDelegate {
         hint.textColor = .secondaryLabelColor
         hint.preferredMaxLayoutWidth = 450
         content.addArrangedSubview(hint)
-        content.addArrangedSubview(button("配对手机控制端",#selector(createPairing)))
+        content.addArrangedSubview(NSStackView(views:[button("配对手机控制端",#selector(createPairing)),button("从 GitHub 导入认证材料…",#selector(importGitHubAuthentication))]))
         makePairingWindow()
     }
 
@@ -193,10 +195,10 @@ final class LocationApp: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func send(_ action: String, values: [String: Any] = [:]) {
+    private func send(_ action: String, values: [String: Any] = [:], requestID: String = UUID().uuidString) {
         guard let input = input else { return }
         var request = values
-        request["action"] = action;request["id"] = UUID().uuidString
+        request["action"] = action;request["id"] = requestID
         guard var data = try? JSONSerialization.data(withJSONObject: request) else { return }
         data.append(10)
         do { try input.write(contentsOf: data) }
@@ -218,6 +220,7 @@ final class LocationApp: NSObject, NSApplicationDelegate {
             if response["event"] as? String == "network-request",let identifier = response["requestId"] as? String {
                 networkCoordinator.request(identifier,interactive:response["interactive"] as? Bool ?? false);continue
             }
+            githubImporter?.receive(response)
             if let runtime = response["runtime"] as? [String:Any] { runtimeMessage = runtime["ready"] as? Bool == true ? nil : runtime["message"] as? String }
             if let snapshot = response["status"] as? [String: Any] { state = snapshot;render() }
             if let error = response["error"] as? String { statusText.stringValue = error }
@@ -399,6 +402,20 @@ final class LocationApp: NSObject, NSApplicationDelegate {
         task.terminationHandler = { [weak self] _ in DispatchQueue.main.async { self?.installer = nil } }
         do { try task.run();installer = task;showDetails() }
         catch { statusText.stringValue = "无法启动手机更新工具";showDetails() }
+    }
+
+    @objc private func importGitHubAuthentication() {
+        guard state["sessionId"] == nil || state["sessionId"] is NSNull,state["recovery"] as? String != "pending" else {
+            statusText.stringValue = "请先停止会话并确认恢复真实位置，再导入认证材料";showDetails();return
+        }
+        if githubImporter == nil {
+            let importer = GitHubImportController()
+            importer.importDirectory = { [weak self] directory,identifier in
+                self?.send("import-runtime-authentication",values:["directory":directory],requestID:identifier)
+            }
+            githubImporter = importer
+        }
+        githubImporter?.show()
     }
 
     @objc private func importRuntimeAuthentication() {

@@ -34,6 +34,9 @@ with tempfile.TemporaryDirectory(prefix='loc2-release-smoke-') as temp:
     env=dict(os.environ,MACPLAY_RESOURCES=str(runtime),MACPLAY_DATA=str(root/'probe-data'),GST_REGISTRY=str(root/'gst-registry.bin'),DYLD_LIBRARY_PATH=str(runtime/'gstreamer/macos-arm64/lib'))
     probe=subprocess.run([str(receiver),'-e',"require(process.env.MACPLAY_RESOURCES+'/engine/media.js'); console.log('media-addon-ok')"],env=env,capture_output=True,text=True,timeout=20)
     if probe.returncode or 'media-addon-ok' not in probe.stdout: raise RuntimeError('Relocated media load failed: '+probe.stderr[-2000:])
+    gh=resources/'GitHubCLI/bin/gh'
+    gh_version=subprocess.check_output([str(gh),'--version'],text=True).splitlines()[0]
+    assert gh_version.startswith('gh version ')
     python=resources/'Python/bin/python3'
     version=subprocess.check_output([str(python),'--version'],text=True).strip()
     script='''

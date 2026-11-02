@@ -111,6 +111,25 @@ def obtain_python(cache, source_archive=None):
     return destination/'python',lock
 
 
+
+def obtain_github_cli(cache, source_archive=None):
+    lock=json.loads((ROOT/'release/github-cli.json').read_text())
+    archive=cache/'github-cli.zip'
+    if source_archive is not None:
+        if digest(source_archive)!=lock['sha256']: raise ValueError('Cached GitHub CLI checksum mismatch')
+        shutil.copyfile(source_archive,archive)
+    else:
+        with urllib.request.urlopen(lock['url'],timeout=90) as response,archive.open('wb') as file: shutil.copyfileobj(response,file)
+    if digest(archive)!=lock['sha256']: raise ValueError('GitHub CLI download checksum mismatch')
+    destination=cache/'GitHubCLI';(destination/'bin').mkdir(parents=True)
+    prefix='gh_'+lock['version']+'_macOS_arm64/'
+    with zipfile.ZipFile(archive) as source:
+        (destination/'bin/gh').write_bytes(source.read(prefix+'bin/gh'))
+        (destination/'LICENSE').write_bytes(source.read(prefix+'LICENSE'))
+    (destination/'bin/gh').chmod(0o755)
+    return destination,lock
+
+
 def source_bundle(source, destination, runtime_resources):
     source=Path(source).resolve()
     excluded={'target','node_modules','.git','.build','build','dist','authentication','__pycache__'}
@@ -138,6 +157,7 @@ def main():
     parser.add_argument('--ios-app',required=True,type=Path)
     parser.add_argument('--output',required=True,type=Path)
     parser.add_argument('--python-archive',type=Path,help='Optional cached archive; must match pinned SHA-256')
+    parser.add_argument('--github-cli-archive',type=Path,help='Optional checksum-verified GitHub CLI ZIP')
     args=parser.parse_args()
     if not re.fullmatch(r'\d+\.\d+\.\d+',args.version) or not args.build.isdigit(): parser.error('Version/build must be numeric')
     capability=check_runtime_tree(args.runtime_resources)
@@ -160,12 +180,16 @@ def main():
         (runtime/'driver/loc2-capabilities.json').write_text(json.dumps(capability,indent=2)+'\n')
         python,python_lock=obtain_python(stage,args.python_archive)
         shutil.copytree(python,resources/'Python',symlinks=True)
+        github_cli,github_lock=obtain_github_cli(stage,args.github_cli_archive)
+        shutil.copytree(github_cli,resources/'GitHubCLI')
+        run('codesign','--force','--sign','-','--timestamp=none',resources/'GitHubCLI/bin/gh',capture_output=True)
         licenses=resources/'ThirdPartyLicenses';licenses.mkdir(exist_ok=True)
+        shutil.copy2(github_cli/'LICENSE',licenses/'GitHub-CLI-LICENSE')
         for name in ('LICENSE','NOTICE','CREDITS.md'): shutil.copy2(args.third_party_source/name,licenses/('MacPlay-'+name))
         for folder in ('assets/licenses','assets/gstreamer/LICENSES'):
             shutil.copytree(args.third_party_source/folder,licenses/Path(folder).parent.name,dirs_exist_ok=True)
         (licenses/'LOC2-DISTRIBUTION.txt').write_text('The upstream NOTICE references authentication assets. Those assets, all private keys, machine identities, pairing records and user configurations are excluded from this Loc2 distribution. Corresponding MacPlay/LIVI sources and the Loc2 overlay are supplied as a separate release asset.\n')
-        (resources/'release.json').write_text(json.dumps(dict(version=args.version,build=args.build,architecture='arm64',minimumMacOS=minimum,python=python_lock,sourceRevision=run('git','rev-parse','HEAD',cwd=ROOT,capture_output=True,text=True).stdout.strip()),indent=2)+'\n')
+        (resources/'release.json').write_text(json.dumps(dict(version=args.version,build=args.build,architecture='arm64',minimumMacOS=minimum,python=python_lock,githubCLI=github_lock,sourceRevision=run('git','rev-parse','HEAD',cwd=ROOT,capture_output=True,text=True).stdout.strip()),indent=2)+'\n')
         info=app/'Contents/Info.plist'
         value=plistlib.loads(info.read_bytes());value.update(CFBundleShortVersionString=args.version,CFBundleVersion=args.build,LSMinimumSystemVersion=minimum)
         info.write_bytes(plistlib.dumps(value))

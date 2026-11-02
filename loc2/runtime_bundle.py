@@ -44,7 +44,7 @@ def runtime_status(workspace):
     if any(not (root/name).is_file() for name in programs):
         return dict(ready=False,state='missing-runtime',message='定位运行时文件不完整，请重新安装完整版')
     if any(not (root/'data/authentication'/name).is_file() for name in AUTH_FILES):
-        return dict(ready=False,state='missing-authentication',message='运行时已内置；请从 Mac 菜单导入本机认证材料，再应用位置')
+        return dict(ready=False,state='missing-authentication',message='运行时已内置；请从 Mac 菜单登录 GitHub 并导入认证材料，再应用位置')
     return dict(ready=True,state='ready',message='已找到运行时与本机认证文件')
 
 
