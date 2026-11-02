@@ -9,12 +9,10 @@ import sys
 import threading
 import time
 from .backend import USBBackend
-from .wireless import WirelessBackend, interface_address
-from .dual_transport import DualTransportBackend
+from .wireless import interface_address
 from .usb_control import USBControlBridge
 from .native_server import NativeServer
-from .current_network import CurrentNetwork
-from .runtime_capabilities import supports_wpa3_transition
+from .setup import runtime_config, create_backend, bind_wireless_target
 import subprocess
 from .session import SessionService
 from .phone import PhoneControl, PhoneServer
@@ -22,18 +20,6 @@ from .grants import AuthorizationStorageError
 from .favorites import FavoritesStorageError
 
 
-def runtime_config(path):
-    value={}
-    if path.exists():
-        if path.stat().st_size > 65536:
-            raise ValueError('本机配置文件过大')
-        value=json.loads(path.read_text())
-        if not isinstance(value,dict): raise ValueError('本机配置格式不正确')
-    # Pairing is available before the optional positioning runtime is installed.
-    # Respect explicitly configured (including disabled) native or legacy service.
-    if 'nativePhone' not in value and 'phone' not in value:
-        value['nativePhone']={'port':8767}
-    return value
 
 
 def dispatch(service, request, phone=None):
@@ -83,11 +69,7 @@ def main():
     config=runtime_config(args.config)
     runtime=args.runtime or config.get('runtime')
     network_requests=queue.Queue()
-    dynamic_network=CurrentNetwork(network_requests.put,allow_wpa3_transition=supports_wpa3_transition(runtime)) if config.get('wireless',{}).get('autoNetwork') else None
-    if config.get('transport') in ('wireless','auto'):
-        wireless=WirelessBackend(runtime,config['wireless'].get('networkConfig'),legacy_device_id=config['wireless'].get('legacyDeviceID'),current_network=dynamic_network,target_bluetooth=config['wireless'].get('targetBluetooth'),wifi_interface=config['wireless'].get('wifiInterface','en0'))
-        backend=DualTransportBackend(USBBackend(config.get('usbRuntime') or runtime),wireless,config.get('targetUSB')) if config.get('transport')=='auto' else wireless
-    else:backend=USBBackend(runtime)
+    backend,dynamic_network=create_backend(config,runtime,network_requests)
     service=SessionService(backend)
     phone,phone_server,phone_error=None,None,None
     usb_server,usb_bridge=None,None
@@ -195,13 +177,19 @@ def main():
             try:
                 request=json.loads(line)
                 if not isinstance(request,dict): raise ValueError('请求必须为对象')
-                result=dispatch(service,request,phone)
+                if request.get('action')=='bind-wireless-target':
+                    try: bind_wireless_target(service,phone,request,args.config,config,runtime,network_requests)
+                    finally: dynamic_network=getattr(service.backend,'current_network',None)
+                    result=service.refresh_devices()
+                else: result=dispatch(service,request,phone)
                 response=dict(id=request.get('id'),ok=True,status=result)
             except ValueError as error:
                 response=dict(id=request.get('id') if isinstance(request,dict) else None,
                               ok=False,error=str(error),status=service.status())
             except Exception:
                 response=dict(id=request.get('id'),ok=False,error='本机操作失败，请检查运行时配置',status=service.status())
+            if isinstance(request,dict) and request.get('action')=='bind-wireless-target' and response['ok']:
+                response['setupMessage']='已保存目标并更新所选手机授权，无需重新扫码。请从菜单初始化网络授权，再明确应用位置。' if runtime else '已保存目标并更新所选手机授权，无需重新扫码。此 Mac 尚未配置定位运行时；准备完成后再初始化网络授权并应用位置。'
             response['networkAutoEnabled']=dynamic_network is not None
             native_server=phone_server if isinstance(phone_server,NativeServer) else usb_server
             response['phone']=native_server.local_status() if native_server else phone.local_status() if phone else dict(error=phone_error or '请配置本机 phone 局域网地址以启用手机控制',pending=[])

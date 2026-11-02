@@ -26,7 +26,7 @@ target_arch=$(uname -m)
 sdk_path=$(xcrun --sdk macosx --show-sdk-path)
 case "$target_arch" in arm64|x86_64) ;; *) printf '%s\n' "Unsupported macOS architecture: $target_arch" >&2; exit 1 ;; esac
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
-xcrun swiftc -sdk "$sdk_path" -O -target "$target_arch-apple-macosx$deployment_target" -framework AppKit -framework ServiceManagement -framework CoreWLAN -framework CoreLocation -framework Security "$project_root/native/loc2-mac/"*.swift -o "$app/Contents/MacOS/loc2"
+xcrun swiftc -sdk "$sdk_path" -O -target "$target_arch-apple-macosx$deployment_target" -framework AppKit -framework IOBluetooth -framework ServiceManagement -framework CoreWLAN -framework CoreLocation -framework Security "$project_root/native/loc2-mac/"*.swift -o "$app/Contents/MacOS/loc2"
 # This generated package must reflect deletions/renames in the source as well as additions.
 rm -rf "$app/Contents/Resources/loc2"
 cp -R "$project_root/loc2" "$app/Contents/Resources/"

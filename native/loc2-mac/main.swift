@@ -119,7 +119,7 @@ final class LocationApp: NSObject, NSApplicationDelegate {
     }
 
     private func makePairingWindow() {
-        pairingWindow = NSWindow(contentRect: NSRect(x:0,y:0,width:540,height:570),styleMask:[.titled,.closable],backing:.buffered,defer:false)
+        pairingWindow = NSWindow(contentRect: NSRect(x:0,y:0,width:540,height:620),styleMask:[.titled,.closable],backing:.buffered,defer:false)
         pairingWindow.title = "配对手机控制端"
         pairingWindow.isReleasedWhenClosed = false
         pairingWindow.center()
@@ -146,7 +146,7 @@ final class LocationApp: NSObject, NSApplicationDelegate {
         content.addArrangedSubview(NSTextField(labelWithString:"已授权控制端"))
         authorizedControllers.widthAnchor.constraint(equalToConstant:460).isActive = true
         content.addArrangedSubview(authorizedControllers)
-        content.addArrangedSubview(button("撤销所选控制端授权",#selector(revokeAuthorization)))
+        content.addArrangedSubview(NSStackView(views:[button("绑定蓝牙目标…",#selector(bindBluetoothTarget)),button("撤销所选控制端授权",#selector(revokeAuthorization))]))
     }
 
     private func button(_ title: String, _ selector: Selector) -> NSButton {
@@ -217,6 +217,9 @@ final class LocationApp: NSObject, NSApplicationDelegate {
             if let error = response["error"] as? String { statusText.stringValue = error }
             if let details = response["phone"] as? [String:Any] { phone = details;renderPhone() }
             if let error = response["error"] as? String, pairingWindow.isVisible { phoneText.stringValue = error }
+            if let message = response["setupMessage"] as? String {
+                let alert = NSAlert();alert.messageText = "蓝牙目标已绑定";alert.informativeText = message;alert.runModal()
+            }
         }
     }
 
@@ -297,7 +300,7 @@ final class LocationApp: NSObject, NSApplicationDelegate {
         let selectedId = authorizedControllers.selectedItem?.representedObject as? String
         grants = phone["grants"] as? [[String:Any]] ?? []
         authorizedControllers.removeAllItems()
-        authorizedControllers.addItem(withTitle: grants.isEmpty ? "暂无已授权控制端" : "请选择需要撤销的控制端")
+        authorizedControllers.addItem(withTitle: grants.isEmpty ? "暂无已授权控制端" : "请选择已授权控制端")
         for grant in grants {
             authorizedControllers.addItem(withTitle:"\(grant["label"] ?? "控制端") → \(grant["deviceId"] as? String ?? "待配置报点目标")")
             authorizedControllers.lastItem?.representedObject = grant["grantId"] as? String
@@ -308,6 +311,19 @@ final class LocationApp: NSObject, NSApplicationDelegate {
         }
         authorizedControllers.isEnabled = !grants.isEmpty
     }
+    @objc private func bindBluetoothTarget() {
+        guard let id = authorizedControllers.selectedItem?.representedObject as? String,
+              let grant = grants.first(where:{ $0["grantId"] as? String == id }) else {
+            phoneText.stringValue = "请先扫码批准手机，再选择已授权控制端";return
+        }
+        guard state["sessionId"] == nil || state["sessionId"] is NSNull,state["recovery"] as? String != "pending" else {
+            phoneText.stringValue = "请先停止当前会话并确认恢复真实位置";return
+        }
+        let setup = BluetoothTargetSetup()
+        guard let (address,interface) = setup.run(controllerName:grant["label"] as? String ?? "手机") else { return }
+        send("bind-wireless-target",values:["grantId":id,"address":address,"wifiInterface":interface])
+    }
+
     @objc private func revokeAuthorization() {
         guard let id = authorizedControllers.selectedItem?.representedObject as? String,
               grants.contains(where: { $0["grantId"] as? String == id }) else { return }

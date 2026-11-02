@@ -143,7 +143,7 @@ class PhoneControl:
             # Only the bound device is disclosed to this controller.
             status['availableDevices']=[grant['deviceId']] if grant['deviceId'] in status['availableDevices'] else []
             if grant['deviceId'] is None:
-                status['connectionHint']='已配对；请在 Mac 配置报点目标后重新扫码授权，无需 USB'
+                status['connectionHint']='已配对；请在 Mac 配对窗口选择此控制端并绑定蓝牙目标，无需 USB'
             return dict(authorized=True,deviceId=grant['deviceId'],targetBound=grant['deviceId'] is not None,status=status)
 
     def map_settings(self, token):
@@ -160,7 +160,7 @@ class PhoneControl:
         with self.lock:
             grant=self.authorize(token)
             if grant['deviceId'] is None:
-                raise RequestError('已配对但尚未授权报点目标；请在 Mac 配置目标后重新扫码授权',403)
+                raise RequestError('已配对但尚未授权报点目标；请在 Mac 配对窗口绑定蓝牙目标',403)
             if body.get('deviceId')!=grant['deviceId']:
                 raise RequestError('此控制端未获准操作该手机',403)
             request_id=body.get('requestId')
