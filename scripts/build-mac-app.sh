@@ -1,11 +1,11 @@
 #!/bin/sh
 set -eu
 project_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-app="$project_root/build/toAnywhere.app"
+app="$project_root/build/Location Lab.app"
 # Preserve the installed app's signing identity so its keychain entries remain trusted.
 signing_identity=${LOCATION_LAB_MAC_SIGN_IDENTITY:-}
 if [ -z "$signing_identity" ]; then
-    signing_identity=$(python3 - "$app" "$project_root/build/Location Lab.app" <<'PY'
+    signing_identity=$(python3 - "$app" "$project_root/build/toAnywhere.app" <<'PY'
 import pathlib,subprocess,sys
 app=next((pathlib.Path(value) for value in sys.argv[1:] if pathlib.Path(value).exists()),pathlib.Path(sys.argv[1]))
 details=subprocess.run(['codesign','-dvv',str(app)],capture_output=True,text=True).stderr if app.exists() else ''
@@ -26,7 +26,7 @@ target_arch=$(uname -m)
 sdk_path=$(xcrun --sdk macosx --show-sdk-path)
 case "$target_arch" in arm64|x86_64) ;; *) printf '%s\n' "Unsupported macOS architecture: $target_arch" >&2; exit 1 ;; esac
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
-xcrun swiftc -sdk "$sdk_path" -O -target "$target_arch-apple-macosx$deployment_target" -framework AppKit -framework ServiceManagement -framework CoreWLAN -framework CoreLocation -framework Security "$project_root/native/LocationLab/"*.swift -o "$app/Contents/MacOS/toAnywhere"
+xcrun swiftc -sdk "$sdk_path" -O -target "$target_arch-apple-macosx$deployment_target" -framework AppKit -framework ServiceManagement -framework CoreWLAN -framework CoreLocation -framework Security "$project_root/native/LocationLab/"*.swift -o "$app/Contents/MacOS/LocationLab"
 # This generated package must reflect deletions/renames in the source as well as additions.
 rm -rf "$app/Contents/Resources/location_lab"
 cp -R "$project_root/location_lab" "$app/Contents/Resources/"
@@ -37,9 +37,9 @@ cat > "$app/Contents/Info.plist" <<'PLIST'
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
 <key>CFBundleIdentifier</key><string>local.location-lab.app</string>
-<key>CFBundleName</key><string>toAnywhere</string>
-<key>CFBundleDisplayName</key><string>toAnywhere</string>
-<key>CFBundleExecutable</key><string>toAnywhere</string>
+<key>CFBundleName</key><string>Location Lab</string>
+<key>CFBundleDisplayName</key><string>Location Lab</string>
+<key>CFBundleExecutable</key><string>LocationLab</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleVersion</key><string>1</string>
 <key>LSUIElement</key><true/>
@@ -52,7 +52,7 @@ cat > "$app/Contents/Info.plist" <<'PLIST'
 <key>LSMinimumSystemVersion</key><string>13.0</string>
 </dict></plist>
 PLIST
-binary_minimum=$(xcrun vtool -show-build "$app/Contents/MacOS/toAnywhere" | awk '$1 == "minos" { print $2 }')
+binary_minimum=$(xcrun vtool -show-build "$app/Contents/MacOS/LocationLab" | awk '$1 == "minos" { print $2 }')
 bundle_minimum=$(/usr/bin/plutil -extract LSMinimumSystemVersion raw -o - "$app/Contents/Info.plist")
 if [ "$binary_minimum" != "$deployment_target" ] || [ "$bundle_minimum" != "$deployment_target" ]; then
     printf '%s\n' "Deployment target mismatch: binary=$binary_minimum bundle=$bundle_minimum expected=$deployment_target" >&2

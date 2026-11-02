@@ -193,7 +193,7 @@ import Security
                     var bytes = [UInt8](repeating:0,count:32)
                     guard SecRandomCopyBytes(kSecRandomDefault,bytes.count,&bytes) == errSecSuccess else { throw AppFailure("无法生成配对请求") }
                     let secret = bytes.map { String(format:"%02x",$0) }.joined()
-                    let result = try await connection.request("/v1/pair/request",body:["challenge":invitation.challenge,"pollSecret":secret,"label":"toAnywhere · iPhone"])
+                    let result = try await connection.request("/v1/pair/request",body:["challenge":invitation.challenge,"pollSecret":secret,"label":"Location Lab · iPhone"])
                     guard let requestID = result["requestId"] as? String else { throw AppFailure("配对请求无效") }
                     pairingMessage = "请在 Mac 菜单栏的配对窗口允许这台 iPhone"
                     for _ in 0..<60 {

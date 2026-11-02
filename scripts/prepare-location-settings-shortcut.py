@@ -10,7 +10,7 @@ folder.mkdir(parents=True,exist_ok=True)
 identifier = str(uuid.uuid5(uuid.NAMESPACE_URL,'locationlab:location-settings-url')).upper()
 workflow = {
     'WFWorkflowClientVersion':'3036.0.4.2','WFWorkflowMinimumClientVersion':900,
-    'WFWorkflowMinimumClientVersionString':'900','WFWorkflowName':'toAnywhere 定位服务',
+    'WFWorkflowMinimumClientVersionString':'900','WFWorkflowName':'Location Lab 定位服务',
     'WFWorkflowIcon':{'WFWorkflowIconStartColor':4282601983,'WFWorkflowIconGlyphNumber':59511},
     'WFWorkflowImportQuestions':[],'WFWorkflowTypes':[],'WFWorkflowInputContentItemClasses':[],
     'WFWorkflowActions':[
@@ -21,7 +21,7 @@ workflow = {
     ],
 }
 source = folder/'unsigned.shortcut'
-target = folder/'toAnywhere 定位服务.shortcut'
+target = folder/'Location Lab 定位服务.shortcut'
 payload = plistlib.dumps(workflow)
 if not target.exists() or not source.exists() or source.read_bytes() != payload:
     source.write_bytes(payload)

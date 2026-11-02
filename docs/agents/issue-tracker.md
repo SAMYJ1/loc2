@@ -1,12 +1,12 @@
 # Issue tracker: GitHub
 
-本项目的任务和规格发布到 SAMYJ1/toAnywhere 的 GitHub Issues。
+本项目的任务和规格发布到 SAMYJ1/location-lab 的 GitHub Issues。
 使用 gh CLI，在本仓库目录执行。
 
 ## 操作约定
 
 - 首次写入前运行 `gh repo view --json nameWithOwner`，
-  确认目标为 SAMYJ1/toAnywhere。
+  确认目标为 SAMYJ1/location-lab。
 - 创建：`gh issue create --title "..." --body-file <file>`。
   多行正文写入临时文件，保留实际换行。
 - 读取：`gh issue view <number> --json number,title,body,labels,comments`。

@@ -9,7 +9,7 @@
 ```sh
 python3 -m unittest discover -s tests -v
 sh scripts/build-mac-app.sh
-open 'build/toAnywhere.app'
+open 'build/Location Lab.app'
 ```
 
 构建生成本地 ad-hoc 签名应用，显式以当前架构的 macOS 13.0 为部署目标，并核对二进制最低版本与应用声明一致，避免新 SDK 默认目标高于当前系统而无法启动。重复构建会刷新打包的 Python 模块，不保留已删除的旧模块。默认使用 `/usr/bin/python3`；通过环境变量 `LOCATION_LAB_PYTHON` 可指定其他 Python 3 的绝对路径。构建不启动 USB；打开应用只枚举连接设备，明确点击“应用位置”才启动会话。

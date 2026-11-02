@@ -7,7 +7,7 @@ import Darwin
 final class LocationApp: NSObject, NSApplicationDelegate {
     private var item: NSStatusItem!
     private var menuBarIcon: MenuBarStatusIcon?
-    private let menuStatus = NSMenuItem(title:"toAnywhere · 正在启动",action:nil,keyEquivalent:"")
+    private let menuStatus = NSMenuItem(title:"Location Lab · 正在启动",action:nil,keyEquivalent:"")
     private var window: NSWindow!
     private var pairingWindow: NSWindow!
     private let statusText = NSTextField(wrappingLabelWithString: "正在启动本机会话服务…")
@@ -78,7 +78,7 @@ final class LocationApp: NSObject, NSApplicationDelegate {
 
     private func makeWindow() {
         window = NSWindow(contentRect: NSRect(x: 0,y: 0,width: 520,height: 610), styleMask: [.titled,.closable,.miniaturizable], backing: .buffered, defer: false)
-        window.title = "toAnywhere"
+        window.title = "Location Lab"
         window.isReleasedWhenClosed = false
         window.center()
         let content = NSStackView()
@@ -221,7 +221,7 @@ final class LocationApp: NSObject, NSApplicationDelegate {
 
     private func updateMenuBar(state: String,description: String) {
         menuBarIcon?.update(state:state,description:description)
-        menuStatus.title = "toAnywhere · \(description)"
+        menuStatus.title = "Location Lab · \(description)"
     }
 
     private func render() {
@@ -254,7 +254,7 @@ final class LocationApp: NSObject, NSApplicationDelegate {
         if advertisement == nil, let endpoint = phone["origin"] as? String,
            let url = URL(string: endpoint), url.scheme == "https", let port = url.port,
            let fingerprint = phone["serverFingerprint"] as? String {
-            let service = NetService(domain: "local.", type: "_locationlab._tcp.", name: "toAnywhere", port: Int32(port))
+            let service = NetService(domain: "local.", type: "_locationlab._tcp.", name: "Location Lab", port: Int32(port))
             service.setTXTRecord(NetService.data(fromTXTRecord: ["fingerprint":Data(fingerprint.utf8)]))
             service.publish(); advertisement = service
         }

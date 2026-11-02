@@ -1,4 +1,4 @@
-# toAnywhere
+# Location Lab
 
 个人使用的 iPhone 原生地图控制 App 与 Mac 后台定位服务。支持 USB 与无线控制／报点，连接 USB 时优先使用 USB。
 
@@ -8,7 +8,7 @@
 
 当前 WPA2/WPA3 混合网络已通过类型 3 握手、应用位置和恢复短测；需要配套且摘要匹配的本机运行时。仅 WPA3 网络尚未验收，不自动降为 WPA2。
 
-规格见 [Issue #1](https://github.com/SAMYJ1/toAnywhere/issues/1)，最终现场验收跟踪于 [Issue #9](https://github.com/SAMYJ1/toAnywhere/issues/9)。用户已确定先按既有 USB 路径开发，开发结束后统一真机验证。
+规格见 [Issue #1](https://github.com/SAMYJ1/location-lab/issues/1)，最终现场验收跟踪于 [Issue #9](https://github.com/SAMYJ1/location-lab/issues/9)。用户已确定先按既有 USB 路径开发，开发结束后统一真机验证。
 
 ## 早期方案记录
 
@@ -45,7 +45,7 @@
 ```sh
 python3 -m unittest discover -s tests -v
 sh scripts/build-mac-app.sh
-open 'build/toAnywhere.app'
+open 'build/Location Lab.app'
 ```
 
 应用默认不启动定位会话。按本机配置说明提供隔离运行时与局域网地址后，手机才能通过二维码请求授权；只有明确应用位置才会启动 USB 会话。

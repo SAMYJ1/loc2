@@ -76,7 +76,7 @@ struct HomeView: View {
                 }
                 }
             }
-            .alert("toAnywhere",isPresented:Binding(get:{ model.notice != nil },set:{ if !$0 { model.notice = nil } })) {
+            .alert("Location Lab",isPresented:Binding(get:{ model.notice != nil },set:{ if !$0 { model.notice = nil } })) {
                 Button("知道了",role:.cancel) { model.notice = nil }
             } message: { Text(model.notice ?? "") }
             .confirmationDialog("确认原电脑已停止报点",isPresented:$confirmingOldSessions,titleVisibility:.visible) {
@@ -214,13 +214,13 @@ struct HomeView: View {
                 }
                 Section("只需配置一次") {
                     Text("1. 导出文件并存储到“文件”App。")
-                    if let file = Bundle.main.url(forResource:"toAnywhere 定位服务",withExtension:"shortcut") {
+                    if let file = Bundle.main.url(forResource:"Location Lab 定位服务",withExtension:"shortcut") {
                         ShareLink(item:file) { Label("导出定位服务快捷指令",systemImage:"square.and.arrow.up") }
                     }
-                    Text("2. 在“文件”中轻点该文件，添加到快捷指令，保留名称“toAnywhere 定位服务”。")
+                    Text("2. 在“文件”中轻点该文件，添加到快捷指令，保留名称“Location Lab 定位服务”。")
                     Text("3. 返回这里，点击下方按钮。")
                     Button("已添加，打开定位服务") {
-                        settingsShortcutName = "toAnywhere 定位服务"
+                        settingsShortcutName = "Location Lab 定位服务"
                         settingsShortcutConfigured = true;sheet = nil;openLocationServices()
                     }
                 }
@@ -328,7 +328,7 @@ struct SettingsView: View {
                         ScrollView {
                             VStack(alignment:.leading,spacing:18) {
                                 Text("1. 先恢复位置，保持手机解锁，并与 Mac 连接同一网络。")
-                                Text("2. 在 Mac 的 toAnywhere 菜单栏选择“更新手机 App”。")
+                                Text("2. 在 Mac 的 Location Lab 菜单栏选择“更新手机 App”。")
                                 Text("3. 若 Xcode 要求登录或确认，请在 Mac 本机完成。")
                                 Text("4. 更新会覆盖安装并保留收藏和连接授权，不需要先删除 App。")
                                 Text("有效期以实际签名为准；更新不一定在尚未到期时立即延长有效期。Mac 菜单栏的停止入口不依赖手机签名。").font(.caption).foregroundStyle(.secondary)

@@ -1,6 +1,6 @@
 # 原生 App 实现与当前验收状态
 
-更新：2026-10-31。对应 [Issue #10](https://github.com/SAMYJ1/toAnywhere/issues/10)。代码和安装均已推进，但新网络的无线建连与两小时验收尚未通过，不能将本文件视为整体验收完成。
+更新：2026-10-31。对应 [Issue #10](https://github.com/SAMYJ1/location-lab/issues/10)。代码和安装均已推进，但新网络的无线建连与两小时验收尚未通过，不能将本文件视为整体验收完成。
 
 ## 已实现
 
@@ -153,7 +153,7 @@ IPv6 修正使用真实运行时的 discovery 模块进行离线回归：修正�
 
 目前通过的是上述短流程，不扩大为远距离目标必然采用、首次纯 USB 配对或两小时持续运行已验收。
 
-## 2026-11-02：应用更名为 toAnywhere
+## 2026-11-02：应用更名为 toAnywhere（历史记录，已恢复原名）
 
 按用户要求，将 iPhone 和 Mac 的显示名称、应用包名称、Mac 菜单栏／窗口、手机提示及新配对标签更新为 `toAnywhere`。保留原 bundle identifiers、URL scheme、Bonjour 服务类型、数据目录和钥匙串服务名，以延续配对、收藏与网络授权。Mac 新旧包的 designated requirement 核对一致，旧包移入本机私有诊断备份，新包为 `build/toAnywhere.app`。
 
@@ -227,3 +227,13 @@ Mac 应用已更新并重启，签名 designated requirement 与更新前一致�
 14:45 的原生应用复测：实际 helper 参数为安全类型 3、同网模式开启；手机日志也收到类型 3。应用记录本地接受 7 组、入队 14 条，接收／解码各 88 帧，最后以 `requested-stop` 结束，相关接收进程均退出。用户明确确认“应用位置和恢复都正常”。采用与恢复的依据是用户观察，计数是传输证据。
 
 结论仅覆盖当前 WPA2/WPA3 混合网络的短流程。未采集 802.11 层最终 AKM 协商，不能将类型 3 等同于每次无线链路都强制 SAE；仅 WPA3 网络和两小时长测仍未验收。没有修改路由器配置，没有执行此前等待确认的强制类型 2 兼容测试，未提交或推送代码。
+
+## 2026-11-02：项目名称恢复为 Location Lab
+
+按用户要求，将两端 App 显示名称、菜单／提示、新配对标签、快捷指令导出名称和构建产物统一恢复为 `Location Lab`。Xcode 工程与 scheme 为 `LocationLab`，手机产物为 `Location Lab.app`；Mac 可执行文件为 `LocationLab`。
+
+GitHub 同一私有仓库恢复为 `SAMYJ1/location-lab`，仓库 ID、提交、Issue 和 PR 历史保留，origin 已更新。实体目录恢复为 `/Users/eugene/code/location-lab`，原路径仅作为兼容符号链接保留；迁移前后 137 个源码文件哈希一致。本机配置只更新了 `mobile.projectRoot`，运行时和其他配置未改变。
+
+两端构建及 iPhone 覆盖安装通过，Mac 已以 `Location Lab` 启动。Mac designated requirement、iPhone application identifier 和 keychain access groups 与更新前一致；bundle identifiers、数据目录、URL scheme、Bonjour 类型及钥匙串服务名保持原值。已保存的快捷指令名称继续从原用户设置读取，不强制重配。
+
+此前更名段落中的旧名称与路径是历史证据；当前运行代码中仅保留旧 Mac 构建产物的签名兼容查找。此次没有启动定位会话。

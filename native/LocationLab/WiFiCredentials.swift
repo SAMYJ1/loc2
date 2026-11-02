@@ -100,7 +100,7 @@ final class KeychainWiFiStorage: WiFiCredentialStorage {
             let insert: [String:Any] = [kSecClass as String:kSecClassGenericPassword,
                                        kSecAttrService as String:service,kSecAttrAccount as String:ssid,
                                        kSecUseKeychain as String:keychain,kSecValueData as String:data,
-                                       kSecAttrLabel as String:"toAnywhere · Wi-Fi"]
+                                       kSecAttrLabel as String:"Location Lab · Wi-Fi"]
             try check(SecItemAdd(insert as CFDictionary,nil))
         }
     }
