@@ -1,53 +1,61 @@
 # Loc2
 
-Loc2 是一个个人使用的 iPhone 定位控制工具，由 iPhone 原生 App 和 Mac 菜单栏后台组成。用户在 iPhone 上通过 Apple 地图搜索、长按选点或输入明确的 WGS84 坐标；只有点击“应用位置”后，Mac 才会通过已配置的 USB 或无线运行时向绑定的 iPhone 提供位置。
+**English** · [简体中文](README.zh-CN.md) · [Download](https://github.com/SAMYJ1/loc2/releases)
 
-核心行为：
+Choose a target location on your iPhone and use a Mac to provide that location over USB or a wireless connection. Loc2 is a personal location-testing tool with a native iPhone app and a Mac menu bar app.
 
-- 支持 USB 与无线报点；配置为双通道时优先 USB，未接 USB 时使用无线。
-- 一台 iPhone 可以保存多台 Mac，自动寻找可用的已配对电脑。
-- 选点只更新草稿，不会自动开始报点；断线、重启或切换电脑也不会重放旧目标。
-- 停止报点与确认恢复真实位置是两个独立步骤。
-- 手机与 Mac 使用 TLS、二维码授权和目标绑定；同一局域网不等于自动信任。
+- **iPhone:** search Apple Maps, select a point, enter WGS84 coordinates, and manage favorites and recent locations.
+- **Mac:** maintain the authorized connection and send location data to the bound iPhone.
+- **You:** explicitly apply each target and verify the location actually reported by the phone.
 
-Loc2 不能保证 iOS 接受任意距离的目标。设备可能根据当前系统状态筛选外部位置，因此必须以手机上的实际观察为准，不能只看 Mac 的发送计数。
+Loc2 requires a Mac and separately supplied accessory authentication files. It is an experimental tool: iOS may reject or filter an external location, and a successful send does not prove that the phone adopted it.
 
-## 系统要求
+## Features
 
-- 完整 Mac Release：Apple Silicon，macOS 26.0 或更新版本。
-- iPhone App：iOS 17.0 或更新版本，当前 IPA 为开发签名，设备需包含在描述文件中并开启 Developer Mode。
-- 首次扫码和无线控制：Mac 与 iPhone 位于同一局域网，Mac 有可用的私有 IPv4 地址。
-- 无线报点：Mac 和 iPhone 已完成系统蓝牙配对，并能访问当前 Wi-Fi 的授权信息。
-- 运行时认证材料：用户有权使用的 `identity.pk8` 和 `certificate.p7b`。
+- Map search, long-press selection, manual coordinates, favorites, and recent targets.
+- USB and wireless location delivery, with USB preferred when dual transport is configured.
+- QR authorization, TLS connections, and explicit target-device binding.
+- Multiple paired Macs, with automatic discovery of an available computer.
+- In-app GitHub login to download authentication files from the configured private repository.
+- Explicit apply and stop controls. Reconnecting or switching computers never automatically reapplies an old target.
 
-完整 Mac Release 已包含运行时程序、Python 和 GitHub 登录组件，但不会包含私钥、运行时认证材料、旧电脑的 TLS 身份、扫码授权或 Wi-Fi 凭据。当前 Mac 包使用开发签名且尚未 notarize；安装前应核对 Release 提供的 SHA-256 和代码签名，不要通过移除安全属性绕过来源检查。
+Favorites, recent locations, and the draft stay on the iPhone. The Mac owns the active session and must remain running while it sends location data.
 
-## 安装
+## Requirements
 
-从 [GitHub Releases](https://github.com/SAMYJ1/loc2/releases) 下载对应版本：
+| Component | Requirement |
+| --- | --- |
+| Mac release | Apple Silicon, macOS 26.0 or later |
+| iPhone app | iOS 17.0 or later; Developer Mode for development-signed builds |
+| Initial QR pairing | Mac and iPhone on the same local network; a usable private IPv4 address on the Mac |
+| Wireless operation | System Bluetooth pairing and Wi-Fi credentials available to Loc2; WPA2 or a supported WPA2/WPA3 mixed network |
+| Authentication | Authorized access to `identity.pk8` and `certificate.p7b`, imported separately |
 
-1. 核对 `SHA256SUMS` 和发布元数据。
-2. 解压 macOS ZIP，将 `Loc2.app` 放入 `/Applications` 后正常打开。
-3. 用 Xcode 或 Apple Configurator 将开发签名 IPA 安装到描述文件包含的 iPhone。
-4. 完成下方“新 Mac 首次设置”。安装 App 本身不会开始报点。
+The full Mac release bundles the runtime, Python, and GitHub CLI. It does not include authentication files. GitHub login only downloads them if your account already has access to the private repository; signing in does not grant that access.
 
-发布包限制、签名和打包方法见[应用 Release](docs/releases.md)。
+Mac releases use a development signature and are not notarized. The supplied IPA is also development-signed: it only installs on devices covered by its provisioning profile and expires with that profile. Check the release notes for signing details. For another iPhone, build and sign the app with your own development team.
 
-## 新 Mac 首次设置
+## Install
 
-以下配置是每台 Mac 独立的。不能只安装 App 和扫码；运行时认证、地图校准、目标绑定和网络授权都完成后，原生地图选点才能正常应用。
+Downloads require repository access while this project is private.
 
-### 1. 首次启动 Mac App
+1. Download the Mac ZIP and the appropriate iOS build from [Releases](https://github.com/SAMYJ1/loc2/releases). Check `SHA256SUMS` and `release-metadata.json`.
+2. Extract the ZIP, move `Loc2.app` to `/Applications`, and open it.
+3. Install the IPA on an eligible iPhone using Xcode or Apple Configurator, or install your own signed build.
 
-打开 Loc2 后，应用会创建 `~/.config/loc2`，生成这台 Mac 独立的 TLS 身份，并在默认端口 `8767` 启动手机控制服务。
+The full Mac package automatically prepares its local runtime directory. You do not need to install Python or enter a `runtime` path. Installing or opening the apps does not start location delivery.
 
-默认情况下，Loc2 根据 macOS 默认路由自动选择网络接口，并在默认路由变化时重新绑定。不要从另一台 Mac 复制 `en0`、`en1` 或 `wifiInterface`。只有确实需要固定多网卡中的某个接口时，才显式设置 `nativePhone.interface`。
+The app interface currently uses Chinese. The instructions below include the on-screen labels.
 
-### 2. 导入运行时认证材料
+## First-time setup
 
-推荐从 Mac 菜单栏或详情窗口选择“从 GitHub 登录并导入认证材料…”。使用有 `SAMYJ1/loc2-private-auth` 访问权限的账号，在浏览器完成 GitHub CLI 授权，App 随后自动下载、校验并导入，无需手动下载 ZIP。已有 GitHub CLI 登录可直接复用，窗口中也可更换账号。
+Complete these steps separately on each Mac.
 
-也可选择原来的“导入运行时认证材料…”入口，选择包含以下两个文件的 `authentication` 目录：
+### 1. Import authentication files
+
+In the Mac menu or details window, choose **From GitHub / 从 GitHub 登录并导入认证材料…**. Sign in with an account that can read `SAMYJ1/loc2-private-auth`. The browser authorization page identifies the application as **GitHub CLI**. After authorization, Loc2 downloads both files from the same repository commit, verifies their SHA-256 checksums, and imports them locally.
+
+If you already have the files, choose **Import runtime authentication / 导入运行时认证材料…** and select this directory instead:
 
 ```text
 authentication/
@@ -55,19 +63,49 @@ authentication/
 └── certificate.p7b
 ```
 
-材料只会复制到这台 Mac 的私有运行时目录，不会上传，也不会覆盖已有身份。不要将这些文件提交到应用源码仓库、公开发布或粘贴到聊天中。
+Without access to the private repository, you need your own authorized source of these files. Existing, different authentication material is not overwritten. Keep the files out of application source code, public releases, and logs.
 
-### 3. 配置原生地图坐标策略
+### 2. Authorize the iPhone and bind its Bluetooth target
 
-iPhone 原生 MapKit 在中国大陆返回的地图坐标需要与 WGS84 报点目标区分。Loc2 默认拒绝未经确认的地图坐标；缺少以下配置时，手机会提示“原生地图坐标尚待本机校准”。手工输入明确的 WGS84 坐标不受此开关影响。
+For this wireless setup, disconnect the iPhone's USB cable after installing the app.
 
-在 `~/.config/loc2/config.json` 中合并 `maps.native`，不要覆盖文件中已有的网络和目标配置：
+1. Keep both devices on the same local network. In the Mac menu, choose **Pair phone controller / 配对手机控制端**.
+2. Tap **Scan to connect / 扫码连接** in the iPhone app and scan the QR code. To add another Mac, use **Add computer: scan QR code / 添加电脑：扫描二维码** in the app's settings. Approve the request on the Mac.
+3. In the Mac pairing window, select that phone under **Authorized controllers / 已授权控制端**, then click **Bind Bluetooth target / 绑定蓝牙目标…**.
+4. Keep the iPhone's **Settings → Bluetooth** page open. Use the Mac's **Search and pair / 搜索并配对附近手机…** button to open system Bluetooth settings and complete pairing. An already paired phone can be selected directly.
+5. Return to Loc2, confirm that the selected device is the same iPhone that scanned the code, and click **Confirm binding / 确认绑定**.
+
+QR authorization does not require USB. Bluetooth binding reads the device address automatically and updates the existing authorization; no second scan is needed. This flow configures wireless operation. USB-first operation requires the separate dual-transport configuration described in the [Mac setup guide](docs/mac-app.md).
+
+### 3. Prepare the wireless network
+
+From the Mac menu, run **Initialize or update network authorization / 初始化或更新网络授权…**, then **Check current network / 检查当前网络**. Grant the macOS permissions requested to identify the current Wi-Fi network and access its credentials.
+
+Loc2 selects the local-network interface automatically. Repeat network authorization after changing Wi-Fi credentials or losing Keychain access. WPA3-only networks are not supported by the current runtime; WPA2/WPA3 mixed mode must pass the compatibility check.
+
+### 4. Choose a location
+
+For a first check, use **Enter coordinates / 输入坐标** on the iPhone and enter a known **WGS84** latitude and longitude. Apple Maps search and long-press targets additionally require the coordinate policy described below.
+
+Before applying, check that the Mac is online, the target is available, and the Mac details window shows no missing authentication or network errors.
+
+## Everyday use
+
+1. Keep the Mac app running and open Loc2 on the iPhone.
+2. Search, select a map point, enter coordinates, or choose a saved location. This only prepares a draft.
+3. Tap **Apply location / 应用位置**. Verify the result on the phone; Mac send counters alone are not confirmation.
+4. To finish, tap **Restore / 恢复** on the iPhone or **Stop sending / 停止报点** on the Mac. Observe whether the phone returns to its real location before confirming recovery. If necessary, use the app's location-settings guide to toggle Location Services manually.
+
+Closing the iPhone app does not stop an active Mac session. Quitting or sleeping the Mac, losing the location-delivery connection, or explicitly stopping ends the session. Reconnects and transport changes require a new explicit apply. When switching Macs, resolve any possibly active session on the previous Mac first.
+
+## Enable Apple Maps targets
+
+Manual WGS84 input works without this setting. To apply Apple Maps search or long-press results, the Mac must have a verified native-map coordinate policy. This matters particularly for the distinction between map coordinates in mainland China and the WGS84 location sent to the phone.
+
+After confirming that the validation applies to your app build and region, merge the following into `~/.config/loc2/config.json`, preserving existing settings:
 
 ```json
 {
-  "nativePhone": {
-    "port": 8767
-  },
   "maps": {
     "native": {
       "coordinatePolicy": "validated-native",
@@ -77,101 +115,53 @@ iPhone 原生 MapKit 在中国大陆返回的地图坐标需要与 WGS84 报点�
 }
 ```
 
-`coordinatePolicy` 与非空的 `validationEvidence` 必须同时存在，修改后重新打开 Mac App。本仓库中的引用对应当前原生 MapKit 中国地区坐标路径的实测记录和独立 WGS84 对照；更换地图提供方、坐标实现、目标地区或无法复用该证据时，应重新校准，不能填写占位字符串直接放行。
+Restart the Mac app. The iPhone diagnostics should show **Native map calibration / 原生地图校准: 已配置**. Both fields are required. The cited files document this project's coordinate validation; this setting does not perform calibration itself. Revalidate when the provider, coordinate implementation, or region differs, and record the applicable evidence rather than a placeholder.
 
-可以用以下命令检查本机字段是否完整：
+## Troubleshooting
+
+| Symptom | What to check |
+| --- | --- |
+| QR code missing or Mac unreachable | Same local network, a private IPv4 address, and default port `8767` reachable; avoid copying another Mac's interface name |
+| Paired, but no target available | Complete Bluetooth target binding on the Mac; QR authorization alone does not select a location-delivery target |
+| GitHub download fails | The signed-in account needs access to the configured private repository; use the account-switch button if necessary |
+| Missing authentication or backend startup failure | Import both authentication files and check runtime status in the Mac details window |
+| Native map coordinates not calibrated | Configure the verified policy above, or use manual WGS84 coordinates |
+| WPA3 compatibility warning | Use a supported WPA2 or WPA2/WPA3 mixed network with the matching runtime, or a configured USB transport |
+| Sending stopped, but the phone still shows the target | Verify recovery on the phone; follow the location-settings guide if it does not return to its real location |
+
+## Data and additional Macs
+
+The iPhone stores its places and paired-computer records locally. Mac configuration and authorizations live under `~/.config/loc2`; private runtime data lives under `~/Library/Application Support/loc2`.
+
+Replacing the Mac app normally preserves these directories. For a new Mac, repeat authentication import, QR authorization, target binding, and network setup. Keep each Mac's TLS identity, authorizations, and network settings independent. Coordinate-validation references can be reused only when they still apply.
+
+## Build from source
+
+Use Xcode Command Line Tools and Python 3.9+ for the Mac app and Python tests. iOS builds require full Xcode; device builds also require your Apple development team and signing setup.
 
 ```sh
-jq -e '.maps.native.coordinatePolicy == "validated-native" and
-       ((.maps.native.validationEvidence // "") | length > 0)' \
-  ~/.config/loc2/config.json
-```
-
-### 4. 扫码授权并绑定目标 iPhone
-
-1. 保持 Mac 与 iPhone 在同一局域网，从 Mac 菜单栏选择“配对手机控制端”。
-2. 用 iPhone Loc2 扫码，并在 Mac 上批准请求。首次扫码授权不需要 USB。
-3. 在配对窗口的“已授权控制端”中选择该手机，点击“绑定蓝牙目标…”。
-4. 在 iPhone 打开“设置 → 蓝牙”并保持页面打开；按 Mac 提示完成系统蓝牙配对。
-5. 回到 Loc2，确认选中的是扫码的同一台 iPhone，再点击“确认绑定”。
-
-只完成扫码时，手机可能显示“已配对，待配置报点目标”。绑定成功后授权会自动升级，无需重新扫码。不要手工复制另一台 Mac 的蓝牙目标、TLS 证书或 `grants.json`。
-
-### 5. 初始化无线网络
-
-需要无线报点时，从 Mac 菜单栏依次执行：
-
-1. “初始化或更新网络授权…”
-2. “检查当前网络”
-
-Loc2 将当前网络信息保存在本机钥匙串中，并继续使用自动接口选择。更换 Wi-Fi、修改密码或钥匙串授权失效后，需要重新执行这一步。
-
-当前支持已验证的 WPA2，以及具有配套运行时能力的 WPA2/WPA3 混合模式。仅 WPA3 网络尚未通过兼容性验收，应用不会把它伪装成 WPA2；遇到相关提示时应改用已验证的混合模式或 USB。
-
-### 6. 首次验证
-
-首次使用建议选择一个附近且有独立参照的地点，完成一次“应用位置 → 手机观察 → 停止报点 → 确认恢复”的短流程。开始前检查：
-
-- Mac 详情显示运行时与认证材料已就绪，且没有网络错误。
-- iPhone 诊断页显示“原生地图校准：已配置”。
-- 当前 Mac 在线、报点目标可用，且没有另一台 Mac 的未结束会话。
-- 无线模式下网络检查通过；USB 模式下连接的是配置绑定的同一台 iPhone。
-
-## 换电脑与重新安装
-
-同一台 Mac 覆盖安装 `/Applications/Loc2.app` 时，`~/.config/loc2` 和 `~/Library/Application Support/loc2` 不在 App 包内，正常情况下会保留。新 Mac 不会自动拥有旧电脑的本机状态，应按以下规则迁移：
-
-| 项目 | 新 Mac 的处理方式 |
-| --- | --- |
-| `maps.native` 校准策略 | 确认仍适用于当前 App、地区和坐标实现后，可迁移证据引用 |
-| 运行时认证材料 | 登录有权限的 GitHub 账号从私有材料库导入，或选择本地认证目录 |
-| TLS 身份与 `grants.json` | 不复制；在新 Mac 重新扫码授权 |
-| 蓝牙／USB 目标 | 在新 Mac 重新确认并绑定 |
-| Wi-Fi 凭据 | 在新 Mac 重新初始化到本机钥匙串 |
-| `interface` / `wifiInterface` | 不迁移；默认由当前 Mac 的路由自动选择 |
-
-建议在迁移前单独记录非敏感的 `maps.native` 配置和校准报告引用。不要把整个私有配置目录提交到 Git，也不要用复制旧 TLS 私钥来跳过新电脑配对。
-
-## 常见提示
-
-| 提示 | 含义与处理 |
-| --- | --- |
-| “原生地图坐标尚待本机校准” | `maps.native` 缺失或证据为空；按首次设置第 3 步配置并重启 Mac App |
-| “已配对，待配置报点目标” | 只完成了控制授权；在 Mac 配对窗口绑定同一台 iPhone 的蓝牙目标 |
-| “运行时认证材料不完整” | 从 Mac 菜单栏登录 GitHub 自动导入，或选择包含两个认证文件的本地目录 |
-| “当前 Wi-Fi 尚未初始化” | 执行“初始化或更新网络授权…”后再检查网络 |
-| “WPA3 需要已确认的混合模式及配套运行时” | 当前网络不满足已验证条件；使用 WPA2/WPA3 混合模式或 USB |
-| 二维码未出现或手机无法连接 Mac | 确认 Mac 有默认路由和私有 IPv4、两端同网、端口 8767 可用；不要硬编码其他电脑的接口名 |
-
-更完整的 Mac 状态、配对和网络说明见[Mac 应用与本机配置](docs/mac-app.md)。
-
-## 使用原则
-
-- 搜索、长按地图、选择收藏或输入坐标只改变草稿。
-- 点击“应用位置”才创建报点会话。
-- Mac 退出、睡眠、链路失败或主动停止会结束当前会话。
-- USB／无线通道变化不会自动重放目标；需要重新明确应用。
-- Mac 显示已发送不代表 iPhone 已采用目标，必须观察手机系统位置。
-- 停止后继续观察真实位置是否恢复；必要时使用 App 提供的定位服务设置入口。
-
-## 开发
-
-源码构建需要 Xcode Command Line Tools 和 Python 3.9 或更新版本。普通源码构建不包含第三方运行时和认证材料。
-
-```sh
+git clone https://github.com/SAMYJ1/loc2.git
+cd loc2
 python3 -m unittest discover -s tests -v
 sh scripts/build-mac-app.sh
-open 'build/Loc2.app'
+open build/Loc2.app
 ```
 
-构建或测试请使用系统／开发环境中的 Python，不要把认证材料、本机配置或诊断日志加入仓库。完整 Release 的构建与校验命令见[应用 Release](docs/releases.md)。
+```sh
+# iOS Simulator build
+sh scripts/build-ios-app.sh simulator
 
-## 相关文档
+# Signed iPhone build: replace YOUR_TEAM_ID with your development team ID
+LOC2_TEAM=YOUR_TEAM_ID sh scripts/build-ios-app.sh device
+```
 
-- [Mac 应用与本机配置](docs/mac-app.md)
-- [应用 Release](docs/releases.md)
-- [手机配对、持久授权与撤销](docs/phone-control.md)
-- [Apple 地图选点与校准策略](docs/apple-map-selection.md)
-- [USB 优先双通道架构](docs/adr/0004-usb-preferred-dual-transport.md)
-- [多 Mac 配对架构](docs/adr/0005-multiple-paired-computers.md)
-- [领域术语](GLOSSARY.md)
+A normal source build does not bundle the third-party runtime, Python, or GitHub CLI. Provide a local runtime as described in the [Mac guide](docs/mac-app.md), or follow the [release packaging instructions](docs/releases.md) to create a full distribution. Authentication material is always supplied separately.
+
+## Further reading
+
+Detailed guides are currently in Chinese:
+
+- [Mac configuration, pairing, networks, and USB transport](docs/mac-app.md)
+- [Release packaging and signing](docs/releases.md)
+- [Pairing and authorization](docs/phone-control.md)
+- [Domain terminology](GLOSSARY.md)
