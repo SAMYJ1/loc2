@@ -72,16 +72,31 @@ final class NetworkCoordinator: NSObject, CLLocationManagerDelegate {
                 guard let self else { return }
                 self.fetching = nil
                 let stillCurrent = self.metadata()
-                let matches = (stillCurrent?["ssid"] as? String) == ssid &&
-                    (stillCurrent?["accessPointMAC"] as? String) == (current["accessPointMAC"] as? String)
+                let sameNetwork = (stillCurrent?["ssid"] as? String) == ssid &&
+                    (stillCurrent?["wifiInterface"] as? String) == (current["wifiInterface"] as? String)
+                let matches = stillCurrent.map { NSDictionary(dictionary:$0).isEqual(to:current) } ?? false
                 if self.requested == identifier {
                     self.requested = nil
-                    if result == errSecSuccess,let password,!password.isEmpty,matches {
+                    // Publish the new observation before acknowledging an explicit
+                    // password update so Python can reject stale scan parameters.
+                    if !matches { self.status?(stillCurrent) }
+                    if result == errSecSuccess,let password,!password.isEmpty,matches || (interactive && sameNetwork) {
                         var value = current;value["password"] = password
                         value["wifiHandshakeSecurity"] = security
                         value["wifiAPSupportsTransition"] = transition
                         self.completion?(identifier,value,nil)
-                    } else { self.completion?(identifier,nil,matches ? (unsupportedWPA3 ? "unsupported-wpa3" : "keychain:\(result)") : "network-changed") }
+                    } else {
+                        let keychainFailed = sameNetwork && !unsupportedWPA3 && result != errSecSuccess
+                        let reason: String
+                        if keychainFailed {
+                            reason = "keychain:\(result)"
+                        } else if matches && unsupportedWPA3 {
+                            reason = "unsupported-wpa3"
+                        } else {
+                            reason = "network-changed"
+                        }
+                        self.completion?(identifier,nil,reason)
+                    }
                 }
                 if self.requested != nil { self.obtain() }
             }
