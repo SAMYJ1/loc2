@@ -17,12 +17,152 @@ class CurrentNetworkTests(unittest.TestCase):
         self.assertFalse(self.network.complete(old,dict(self.meta,password='old-only')))
         self.network.prepare();self.assertTrue(self.network.complete(self.requests[-1]['requestId'],dict(other,password='new-only')))
         self.assertEqual(self.network.settings()['ssid'],'NewNetwork')
-    def test_system_denial_does_not_reprompt_on_status_poll(self):
+    def test_missing_credentials_require_explicit_refresh(self):
         self.network.update_metadata(self.meta);self.network.prepare();request=self.requests[-1]['requestId']
-        self.network.complete(request,None,error=True)
-        for _ in range(10):self.network.prepare()
+        self.network.complete(request,None,error=True,reason='keychain:-25300')
+        for self.now in (1,10,60):
+            self.network.prepare()
         self.assertEqual(len(self.requests),1)
         self.network.prepare(force=True);self.assertEqual(len(self.requests),2)
+
+    def test_temporary_keychain_failure_retries_without_interaction(self):
+        for issue in ('keychain:-25308', 'keychain:4097', 'keychain:-25291'):
+            with self.subTest(issue=issue):
+                self.now = 0
+                self.requests.clear()
+                network = CurrentNetwork(self.requests.append, clock=lambda: self.now)
+                network.update_metadata(self.meta)
+                network.prepare()
+                network.complete(self.requests[-1]['requestId'], None, error=True, reason=issue)
+                if issue == 'keychain:-25308':
+                    self.assertIn('初始化或更新网络授权', network.hint)
+
+                self.now = 1
+                network.update_metadata(self.meta)
+                self.assertFalse(network.prepare())
+                self.assertEqual(len(self.requests), 1)
+
+                self.now = 60
+                network.update_metadata(self.meta)
+                self.assertFalse(network.prepare())
+                self.assertEqual(len(self.requests), 2)
+                self.assertFalse(self.requests[-1]['interactive'])
+                network.prepare()
+                self.assertEqual(len(self.requests), 2)
+                self.assertTrue(network.complete(self.requests[-1]['requestId'], dict(self.meta, password='test-only')))
+                self.assertTrue(network.ready)
+                self.assertIsNone(network.issue)
+
+    def test_restored_wifi_retries_after_metadata_failure(self):
+        self.ready()
+        self.network.update_metadata(None)
+        self.network.prepare()
+        self.network.complete(self.requests[-1]['requestId'], None, error=True, reason='metadata:3')
+
+        self.network.update_metadata(self.meta)
+        self.assertIsNone(self.network.issue)
+        self.network.prepare()
+        self.assertEqual(len(self.requests), 3)
+        self.assertTrue(self.network.complete(self.requests[-1]['requestId'], dict(self.meta, password='test-only')))
+
+    def test_access_point_roam_keeps_keychain_retry_interval(self):
+        self.network.update_metadata(self.meta)
+        self.network.prepare()
+        # The Mac publishes its latest observation before completing the read.
+        other_ap = dict(self.meta, accessPointMAC='00:11:22:33:44:66')
+        self.network.update_metadata(other_ap)
+        self.network.complete(self.requests[-1]['requestId'], None, error=True, reason='keychain:-25308')
+
+        self.now = 3
+        other_ap = dict(other_ap, channel=36)
+        self.network.update_metadata(other_ap)
+        self.network.prepare()
+        self.assertEqual(len(self.requests), 1)
+
+        self.now = 10
+        self.network.prepare()
+        self.assertEqual(len(self.requests), 2)
+        self.assertFalse(self.requests[-1]['interactive'])
+        self.assertTrue(self.network.complete(self.requests[-1]['requestId'], dict(other_ap, password='test-only')))
+
+    def test_failed_explicit_refresh_cannot_reuse_cached_password(self):
+        self.ready()
+        self.network.prepare(force=True, interactive=True)
+        self.network.complete(self.requests[-1]['requestId'], None, error=True, reason='keychain:-25308')
+
+        self.now = 11
+        self.network.prepare()
+        self.network.prepare(force=True)
+        self.assertEqual(len(self.requests), 2)
+        self.assertFalse(self.network.ready)
+        self.assertIn('初始化或更新网络授权', self.network.hint)
+
+        self.network.update_metadata(None)
+        self.network.prepare()
+        self.network.update_metadata(self.meta)
+        self.network.prepare()
+        self.assertEqual(len(self.requests), 2)
+
+        self.network.prepare(force=True, interactive=True)
+        self.assertTrue(self.network.complete(self.requests[-1]['requestId'], dict(self.meta, password='updated-fixture')))
+        self.assertEqual(self.network.settings()['password'], 'updated-fixture')
+
+    def test_interrupted_explicit_refresh_cannot_reuse_cached_password(self):
+        self.ready()
+        self.network.prepare(force=True, interactive=True)
+        explicit = self.requests[-1]['requestId']
+        self.assertFalse(self.network.ready)
+
+        self.network.update_metadata(None)
+        self.assertFalse(self.network.complete(explicit, None, error=True, reason='network-changed'))
+        self.network.update_metadata(self.meta)
+        self.network.prepare(force=True)
+        self.assertFalse(self.network.ready)
+        self.assertEqual(len(self.requests), 2)
+        self.assertIn('初始化或更新网络授权', self.network.hint)
+
+    def test_initial_metadata_keeps_pending_authorization(self):
+        self.network.prepare(force=True, interactive=True)
+        request = self.requests[-1]['requestId']
+        self.network.update_metadata(self.meta)
+        self.assertTrue(self.network.complete(request, dict(self.meta, password='test-only')))
+
+    def test_explicit_authorization_supersedes_pending_silent_read(self):
+        self.network.update_metadata(self.meta)
+        self.network.prepare()
+        automatic = self.requests[-1]['requestId']
+
+        self.network.prepare(force=True, interactive=True)
+        self.assertEqual(len(self.requests), 2)
+        self.assertTrue(self.requests[-1]['interactive'])
+        self.assertFalse(self.network.complete(automatic, dict(self.meta, password='outdated-fixture')))
+        explicit = self.requests[-1]['requestId']
+        other_ap = dict(self.meta, accessPointMAC='00:11:22:33:44:66')
+        self.network.update_metadata(other_ap)
+        self.network.prepare()
+        self.assertEqual(len(self.requests), 2)
+        self.assertTrue(self.network.complete(explicit, dict(other_ap, password='updated-fixture')))
+
+    def test_successful_explicit_refresh_rechecks_ap_after_roam(self):
+        self.ready()
+        self.network.prepare(force=True, interactive=True)
+        self.network.complete(self.requests[-1]['requestId'], None, error=True, reason='keychain:-25308')
+        self.network.prepare(force=True, interactive=True)
+        explicit = self.requests[-1]['requestId']
+
+        # The Mac saved the password, but the scan used the previous access point.
+        other_ap = dict(self.meta, accessPointMAC='00:11:22:33:44:66')
+        self.network.update_metadata(other_ap)
+        self.assertFalse(self.network.complete(explicit, dict(self.meta, password='updated-fixture')))
+        self.assertFalse(self.network.ready)
+        self.assertEqual(self.network.issue, 'network-changed')
+
+        self.now = 10
+        self.network.prepare()
+        self.assertEqual(len(self.requests), 4)
+        self.assertFalse(self.requests[-1]['interactive'])
+        self.assertTrue(self.network.complete(self.requests[-1]['requestId'], dict(other_ap, password='updated-fixture')))
+
     def test_stale_network_requires_fresh_system_observation(self):
         self.ready();self.assertTrue(self.network.ready)
         self.now=13;self.assertFalse(self.network.ready)
