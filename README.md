@@ -1,6 +1,6 @@
 # Loc2
 
-**English** · [简体中文](README.zh-CN.md) · [Download](https://github.com/SAMYJ1/loc2/releases)
+**English** · [简体中文](README.zh-CN.md) · [GPL-3.0-or-later](LICENSE)
 
 Choose a target location on your iPhone and use a Mac to provide that location over USB or a wireless connection. Loc2 is a personal location-testing tool with a native iPhone app and a Mac menu bar app.
 
@@ -25,25 +25,17 @@ Favorites, recent locations, and the draft stay on the iPhone. The Mac owns the 
 
 | Component | Requirement |
 | --- | --- |
-| Mac release | Apple Silicon, macOS 26.0 or later |
+| Mac runtime | Apple Silicon and macOS 26.0 or later for the documented runtime |
 | iPhone app | iOS 17.0 or later; Developer Mode for development-signed builds |
 | Initial QR pairing | Mac and iPhone on the same local network; a usable private IPv4 address on the Mac |
 | Wireless operation | System Bluetooth pairing and Wi-Fi credentials available to Loc2; WPA2 or a supported WPA2/WPA3 mixed network |
 | Authentication | Authorized access to `identity.pk8` and `certificate.p7b`, imported separately |
 
-The full Mac release bundles the runtime, Python, and GitHub CLI. It does not include authentication files. GitHub login only downloads them if your account already has access to the private repository; signing in does not grant that access.
-
-Mac releases use a development signature and are not notarized. The supplied IPA is also development-signed: it only installs on devices covered by its provisioning profile and expires with that profile. Check the release notes for signing details. For another iPhone, build and sign the app with your own development team.
-
 ## Install
 
-Downloads require repository access while this project is private.
-
-1. Download the Mac ZIP and the appropriate iOS build from [Releases](https://github.com/SAMYJ1/loc2/releases). Check `SHA256SUMS` and `release-metadata.json`.
-2. Extract the ZIP, move `Loc2.app` to `/Applications`, and open it.
-3. Install the IPA on an eligible iPhone using Xcode or Apple Configurator, or install your own signed build.
-
-The full Mac package automatically prepares its local runtime directory. You do not need to install Python or enter a `runtime` path. Installing or opening the apps does not start location delivery.
+1. Build both apps from the public source. Use your own Apple development team to sign and install the iPhone app. [Build from source](#build-from-source)
+2. Prepare a compatible location runtime in a local directory and set its path in the Mac configuration. [Mac runtime setup](docs/mac-app.md#本机运行时配置)
+3. Open Loc2 on both devices and import your authorized accessory authentication files in the Mac app.
 
 The app interface currently uses Chinese. The instructions below include the on-screen labels.
 
@@ -53,9 +45,7 @@ Complete these steps separately on each Mac.
 
 ### 1. Import authentication files
 
-In the Mac menu or details window, choose **From GitHub / 从 GitHub 登录并导入认证材料…**. Sign in with an account that can read `SAMYJ1/loc2-private-auth`. The browser authorization page identifies the application as **GitHub CLI**. After authorization, Loc2 downloads both files from the same repository commit, verifies their SHA-256 checksums, and imports them locally.
-
-If you already have the files, choose **Import runtime authentication / 导入运行时认证材料…** and select this directory instead:
+In the Mac menu, choose **Import runtime authentication / 导入运行时认证材料…** and select a directory containing the two files you are authorized to use.
 
 ```text
 authentication/
@@ -63,7 +53,7 @@ authentication/
 └── certificate.p7b
 ```
 
-Without access to the private repository, you need your own authorized source of these files. Existing, different authentication material is not overwritten. Keep the files out of application source code, public releases, and logs.
+Accounts with access to the private credential repository can also use **From GitHub / 从 GitHub 登录并导入认证材料…**. The browser authorization page shows **GitHub CLI**. Loc2 downloads both files from one repository commit and checks their SHA-256 digests before importing them locally. Keep the files in your private runtime directory. [Authentication setup](docs/mac-app.md#从-github-一键导入认证材料)
 
 ### 2. Authorize the iPhone and bind its Bluetooth target
 
@@ -155,7 +145,15 @@ sh scripts/build-ios-app.sh simulator
 LOC2_TEAM=YOUR_TEAM_ID sh scripts/build-ios-app.sh device
 ```
 
-A normal source build does not bundle the third-party runtime, Python, or GitHub CLI. Provide a local runtime as described in the [Mac guide](docs/mac-app.md), or follow the [release packaging instructions](docs/releases.md) to create a full distribution. Authentication material is always supplied separately.
+Install the signed device build from `build/ios-device/Build/Products/Debug-iphoneos/Loc2.app` using Xcode's Devices and Simulators window. If your team needs a different bundle identifier, open `native/loc2-ios/loc2.xcodeproj`, set the identifier and signing team, then build and run from Xcode.
+
+Source builds use a locally supplied runtime and Python. The packaging guide covers assembling a complete bundle with compatible third-party components. [Mac setup](docs/mac-app.md) · [Packaging](docs/releases.md)
+
+## License
+
+Loc2's original source code is copyright © 2026 Loc2 contributors and is licensed under **GPL-3.0-or-later**. [License text](LICENSE)
+
+Third-party components retain their original licenses and attribution. [Third-party notices](THIRD_PARTY_NOTICES.md)
 
 ## Further reading
 

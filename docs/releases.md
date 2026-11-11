@@ -1,6 +1,6 @@
 # 应用 Release
 
-GitHub Releases 用于分发应用产物，源码仓库不保存运行时二进制或私密材料。当前仓库保持私有；下载需要仓库访问权限。
+Loc2 公开分发源码，使用者可自行构建和签名。包含登记设备标识的个人开发预览包存放在仅对仓库写入成员可见的 GitHub Release 草稿中。
 
 ## 使用安装包
 
@@ -45,7 +45,7 @@ iOS 构建需要事先在环境中设置 `LOC2_TEAM`；不将签名私钥或本�
 
 ## 发布
 
-先完成测试并提交构建代码，再以该提交构建产物；发布前核对元数据中的 `sourceRevision`。建议以 `v0.1.0-preview.1` 这样的 prerelease 标签开始。上传 Mac ZIP、开发 IPA、运行时源码包、元数据与校验和；不要上传 `data/`、配置目录或构建日志。
+先完成测试并提交构建代码，再以该提交构建产物，核对元数据中的 `sourceRevision`。个人开发预览使用 Release 草稿。对外分发应用包时应随附各组件的许可通知，并按各自许可提供对应源码。认证材料和设备专用的签名文件留在本机私有目录。 [第三方许可说明](../THIRD_PARTY_NOTICES.md)
 
 Python 来源与许可：[Python Build Standalone](https://github.com/astral-sh/python-build-standalone)。iOS 开发分发方式：[Apple 的设备分发说明](https://help.apple.com/xcode/mac/current/en.lproj/dev7ccaf4d3c.html)。
 

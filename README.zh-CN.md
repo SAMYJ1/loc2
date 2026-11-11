@@ -1,6 +1,6 @@
 # Loc2
 
-[English](README.md) · **简体中文** · [下载安装包](https://github.com/SAMYJ1/loc2/releases)
+[English](README.md) · **简体中文** · [GPL-3.0-or-later](LICENSE)
 
 在 iPhone 上选择目标位置，由 Mac 通过 USB 或无线连接向手机提供该位置。Loc2 是一个用于个人定位测试的工具，包含 iPhone 原生 App 和 Mac 菜单栏 App。
 
@@ -25,25 +25,17 @@ Loc2 需要一台 Mac，以及单独准备的配件认证材料。它属于实�
 
 | 项目 | 要求 |
 | --- | --- |
-| Mac 安装包 | Apple Silicon，macOS 26.0 或更新版本 |
+| Mac 运行时 | 本文所述运行时使用 Apple Silicon 和 macOS 26.0 或更新版本 |
 | iPhone App | iOS 17.0 或更新版本；开发签名安装需开启 Developer Mode |
 | 首次扫码 | Mac 与 iPhone 在同一局域网，Mac 有可用的私有 IPv4 地址 |
 | 无线使用 | 完成系统蓝牙配对，Loc2 可读取 Wi-Fi 凭据；使用 WPA2 或受支持的 WPA2/WPA3 混合网络 |
 | 认证材料 | 有权使用的 `identity.pk8` 和 `certificate.p7b`，需要单独导入 |
 
-完整 Mac 安装包已内置运行时、Python 和 GitHub CLI，不包含认证材料。GitHub 自动导入要求账号已有私有仓库访问权限，登录本身不会授予该权限。
-
-Mac 包使用开发签名，尚未公证。提供的 IPA 同样为开发签名，只能安装到描述文件覆盖的设备，并受签名有效期限制；具体信息见 Release 说明。其他 iPhone 需要使用自己的开发团队构建并签名。
-
 ## 安装
 
-仓库为私有时，下载安装包需要相应的 GitHub 访问权限。
-
-1. 从 [Releases](https://github.com/SAMYJ1/loc2/releases) 下载 Mac ZIP 和适用的 iOS 安装包，核对 `SHA256SUMS` 与 `release-metadata.json`。
-2. 解压 ZIP，将 `Loc2.app` 放入 `/Applications`，然后打开。
-3. 使用 Xcode 或 Apple Configurator 将 IPA 安装到符合签名条件的 iPhone，或安装自己签名的版本。
-
-完整 Mac 包会自动准备本机运行时目录，无需另外安装 Python 或填写 `runtime` 路径。安装或打开 App 不会开始报点。
+1. 从公开源码构建 Mac 和 iPhone App。使用自己的 Apple 开发团队签名并安装 iPhone App。[从源码构建](#从源码构建)
+2. 在本机准备兼容的定位运行时，并在 Mac 配置中填写路径。[Mac 运行时配置](docs/mac-app.md#本机运行时配置)
+3. 打开两端的 Loc2，在 Mac 导入你有权使用的配件认证材料。
 
 ## 首次设置
 
@@ -51,9 +43,7 @@ Mac 包使用开发签名，尚未公证。提供的 IPA 同样为开发签名�
 
 ### 1. 导入认证材料
 
-在 Mac 菜单或详情窗口选择 **“从 GitHub 登录并导入认证材料…”**，使用有 `SAMYJ1/loc2-private-auth` 访问权限的账号登录。浏览器授权页显示的应用名称是 **GitHub CLI**。授权后，Loc2 从同一仓库提交中下载两份文件，核对 SHA-256 摘要，再导入本机。
-
-已有文件时，也可选择 **“导入运行时认证材料…”**，选中以下目录：
+在 Mac 菜单选择 **“导入运行时认证材料…”**，选中包含以下两份你有权使用的文件的目录。
 
 ```text
 authentication/
@@ -61,7 +51,7 @@ authentication/
 └── certificate.p7b
 ```
 
-没有私有仓库权限时，需要自行准备有权使用的材料。已有不同身份不会被覆盖。请勿将这些文件放入应用源码、公开 Release 或日志。
+已有私有认证仓库访问权限的账号也可以选择 **“从 GitHub 登录并导入认证材料…”**。浏览器授权页显示的应用名称是 **GitHub CLI**。Loc2 从同一提交中下载两份文件，核对 SHA-256 摘要后导入本机。请将认证材料保存在本机私有运行时目录。[认证设置](docs/mac-app.md#从-github-一键导入认证材料)
 
 ### 2. 扫码授权并绑定蓝牙目标
 
@@ -153,7 +143,15 @@ sh scripts/build-ios-app.sh simulator
 LOC2_TEAM=YOUR_TEAM_ID sh scripts/build-ios-app.sh device
 ```
 
-普通源码构建不会打包第三方运行时、Python 或 GitHub CLI。可按 [Mac 指南](docs/mac-app.md) 配置本机运行时，或按 [Release 打包说明](docs/releases.md) 生成完整安装包。认证材料始终需要单独提供。
+签名后的真机构建位于 `build/ios-device/Build/Products/Debug-iphoneos/Loc2.app`，可通过 Xcode 的 Devices and Simulators 窗口安装。如果开发团队需要不同的 Bundle Identifier，打开生成的 `native/loc2-ios/loc2.xcodeproj`，设置自己的标识和签名团队，然后直接在 Xcode 中构建运行。
+
+源码构建使用本机准备的运行时和 Python。需要制作完整安装包时，可按打包指南准备兼容的第三方组件。[Mac 设置](docs/mac-app.md) · [打包指南](docs/releases.md)
+
+## 开源许可证
+
+Loc2 原创源码的版权归 Loc2 贡献者所有，采用 **GPL-3.0-or-later** 许可。[许可证正文](LICENSE)
+
+第三方组件沿用各自的许可证和署名。[第三方许可说明](THIRD_PARTY_NOTICES.md)
 
 ## 更多文档
 

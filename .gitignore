@@ -13,8 +13,12 @@ work/
 runtime/
 *.pem
 *.key
+*.pk8
+*.p7b
 *.p12
 *.mobileprovision
+identity.json
+grants.json
 
 # Build products
 .build/
@@ -23,6 +27,7 @@ build/
 dist/
 node_modules/
 *.app/
+*.ipa
 *.dSYM/
 *.xcuserstate
 xcuserdata/
