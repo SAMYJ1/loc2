@@ -7,6 +7,24 @@ import threading
 from functools import wraps
 
 UNSUPPORTED_WPA3 = '当前网络尚未通过无线兼容性检查；WPA3 需要已确认的混合模式及配套运行时，也可使用 USB'
+RETRY_DELAY = 10
+RETRYABLE_ISSUES = {
+    'keychain:4097': '系统凭据接口暂不可用，Loc2 会自动重试',
+    'keychain:-25291': 'macOS 钥匙串暂不可用，Loc2 会自动重试',
+    'keychain:-25308': '暂时无法读取钥匙串，Loc2 会自动重试。若 Mac 已锁定，请先解锁',
+    'network-changed': '当前 Wi-Fi 信息已变化，Loc2 会自动重新检查',
+}
+ISSUE_HINTS = {
+    **RETRYABLE_ISSUES,
+    'unsupported-security': '当前 Wi-Fi 认证方式暂不受无线接收器支持',
+    'unsupported-wpa3': UNSUPPORTED_WPA3,
+    'keychain:-25300': '当前 Wi-Fi 尚未初始化，请在 Mac 菜单中初始化或更新网络授权',
+    'keychain:-25315': '当前网络授权需要初始化，请在 Mac 菜单中初始化或更新网络授权',
+    'keychain:-25293': '当前网络授权不可用，请在 Mac 菜单中初始化或更新网络授权',
+    'metadata:2': 'Mac 未允许读取当前 Wi-Fi 信息，请检查定位服务权限',
+    'metadata:3': '尚未识别当前 Wi-Fi 网络，恢复连接后会自动检查',
+    'invalid-network-info': '当前 Wi-Fi 信息不完整，请在 Mac 检查当前网络',
+}
 
 
 def require_supported_security(mode, *, reuse_connected_wifi=False):
@@ -42,8 +60,13 @@ class CurrentNetwork:
         self.lock=threading.RLock()
         self.request,self.clock=request,clock
         self.allow_wpa3_transition=bool(allow_wpa3_transition)
-        self.metadata=None;self.credentials=None;self.pending=None
-        self.updated_at=0;self.failed=False;self.issue=None
+        self.metadata = None
+        self.credentials = None
+        self.pending = None
+        self.pending_interactive = False
+        self.updated_at = 0
+        self.issue = None
+        self.retry_at = None
         self.hint='应用位置前将自动读取当前 Wi-Fi 连接信息'
 
     @guarded
@@ -54,14 +77,20 @@ class CurrentNetwork:
         changed=previous is not None and (metadata is None or any(metadata[k]!=previous[k] for k in ('ssid','wifiInterface')))
         # A roam within one SSID refreshes connection parameters for the next
         # session; it does not tear down an otherwise healthy current session.
-        if previous is not None and metadata!=previous:
-            self.credentials=None;self.pending=None;self.failed=False
+        if metadata != previous:
+            self.credentials = None
+            self.issue = None
+            self.retry_at = None
+            # The first valid observation may be part of an in-flight request.
+            # Its result still has to match the current network in complete().
+            if previous is not None:
+                self.pending = None
         self.metadata=metadata;self.updated_at=self.clock()
         if metadata is None:self.credentials=None
         if self._block_unsupported_network():return changed
-        if self.issue=='unsupported-wpa3' and (metadata is None or metadata['wifiSecurity']==2):self.failed=False;self.issue=None
+        if self.issue=='unsupported-wpa3' and (metadata is None or metadata['wifiSecurity']==2):self.issue=None
         if metadata and self.ready:self.hint=None
-        elif not self.pending and not self.failed:self.hint='当前 Wi-Fi 连接参数待自动准备' if metadata else '尚未识别当前 Wi-Fi 网络'
+        elif not self.pending and self.issue is None:self.hint='当前 Wi-Fi 连接参数待自动准备' if metadata else '尚未识别当前 Wi-Fi 网络'
         return changed
 
     @property
@@ -71,18 +100,29 @@ class CurrentNetwork:
 
     def _block_unsupported_network(self):
         if self.metadata and self.metadata['wifiSecurity'] in (3,4) and not self.allow_wpa3_transition:
-            self.credentials=None;self.pending=None;self.failed=True;self.issue='unsupported-wpa3'
-            self.hint=UNSUPPORTED_WPA3
+            self.pending = None
+            self._set_issue('unsupported-wpa3')
             return True
         return False
+
+    def _set_issue(self, issue):
+        self.credentials = None
+        self.issue = issue
+        self.retry_at = self.clock() + RETRY_DELAY if issue in RETRYABLE_ISSUES else None
+        self.hint = ISSUE_HINTS.get(issue, '当前 Wi-Fi 信息未就绪，请在 Mac 查看网络诊断')
 
     @guarded
     def prepare(self,force=False,interactive=False):
         if self._block_unsupported_network():return False
         if self.ready and not interactive:return True
-        if self.pending is None and (force or not self.failed):
-            self.pending=str(uuid.uuid4());self.hint='正在准备当前 Wi-Fi 连接信息'
-            self.request(dict(requestId=self.pending,interactive=bool(interactive)))
+        if self.pending is not None and (not interactive or self.pending_interactive):
+            return False
+        retry_due = self.retry_at is not None and self.clock() >= self.retry_at
+        if force or interactive or self.issue is None or retry_due:
+            self.pending = str(uuid.uuid4())
+            self.pending_interactive = bool(interactive)
+            self.hint = '正在准备当前 Wi-Fi 连接信息'
+            self.request(dict(requestId=self.pending, interactive=self.pending_interactive))
         return False
 
     @guarded
@@ -90,24 +130,19 @@ class CurrentNetwork:
         if request_id!=self.pending:return False
         self.pending=None
         if error:
-            self.failed=True;self.credentials=None
-            self.issue=reason if isinstance(reason,str) and (re.fullmatch(r'(keychain|metadata):-?[0-9]+',reason) or reason in ('network-changed','unsupported-security','unsupported-wpa3')) else 'unavailable'
-            messages={'unsupported-security':'当前 Wi-Fi 认证方式暂不受无线接收器支持','keychain:4097':'系统凭据接口暂不可用，请稍后重试','keychain:-25300':'当前 Wi-Fi 尚未初始化，请在 Mac 菜单中初始化或更新网络授权',
-                      'keychain:-25308':'当前网络授权需要初始化或钥匙串尚未解锁，请在 Mac 菜单中检查；不会自动弹窗',
-                      'keychain:-25315':'当前网络授权需要初始化，请在 Mac 菜单中初始化或更新网络授权',
-                      'keychain:-25293':'当前网络授权不可用，请在 Mac 菜单中初始化或更新网络授权',
-                      'metadata:2':'Mac 未允许读取当前 Wi-Fi 信息，请检查定位服务权限',
-                      'network-changed':'网络刚刚发生变化，请重新应用'}
-            messages['unsupported-wpa3']=UNSUPPORTED_WPA3
-            self.hint=messages.get(self.issue,'当前 Wi-Fi 信息未就绪，请在 Mac 查看网络诊断')
+            if not isinstance(reason, str) or (reason not in ISSUE_HINTS and not re.fullmatch(r'(keychain|metadata):-?[0-9]+', reason)):
+                reason = 'unavailable'
+            self._set_issue(reason)
             return False
         try:
             metadata=validate_metadata(value)
             password=value.get('password')
             if not isinstance(password,str) or not password or len(password)>256:raise ValueError('Missing credential')
-            if metadata!=self.metadata:raise ValueError('Network changed')
         except (ValueError,AttributeError):
-            self.failed=True;self.credentials=None;self.hint='网络已变化或连接信息不完整，请重新应用'
+            self._set_issue('invalid-network-info')
+            return False
+        if metadata != self.metadata:
+            self._set_issue('network-changed')
             return False
         handshake=value.get('wifiHandshakeSecurity',metadata['wifiSecurity'])
         transition=(self.allow_wpa3_transition and handshake==3 and value.get('wifiAPSupportsTransition') is True)
@@ -115,11 +150,14 @@ class CurrentNetwork:
             # Old runtimes keep their existing WPA2 path. A WPA3 observation may
             # never be silently relabelled WPA2, even with supplied credentials.
             if metadata['wifiSecurity']!=2 or (self.allow_wpa3_transition and handshake!=2):
-                self.failed=True;self.credentials=None;self.issue='unsupported-wpa3';self.hint=UNSUPPORTED_WPA3
+                self._set_issue('unsupported-wpa3')
                 return False
             handshake=2
         self.credentials=dict(metadata,password=password,wifiHandshakeSecurity=handshake,reuseConnectedWiFi=transition)
-        self.updated_at=self.clock();self.failed=False;self.hint=None;self.issue=None
+        self.updated_at = self.clock()
+        self.hint = None
+        self.issue = None
+        self.retry_at = None
         return True
 
     @guarded
